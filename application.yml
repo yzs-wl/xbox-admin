@@ -1,0 +1,212 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: xbox-admin
+  datasource:
+    #url: jdbc:mysql://localhost:3306/xbox?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    #driver-class-name: com.mysql.cj.jdbc.Driver
+    #username: root
+    #password: root
+    url: jdbc:h2:file:./data/xbox-admin
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        #dialect: org.hibernate.dialect.MySQLDialect
+        dialect: org.hibernate.dialect.H2Dialect
+        bytecode:
+          provider: none
+  sql:
+    init:
+      mode: never
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:sk-placeholder}
+      base-url: ${OPENAI_BASE_URL:https://api.deepseek.com}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:deepseek-chat}
+          temperature: 0.7
+    # MCP Server 配置（由 spring-ai-starter-mcp-server-webmvc 自动配置）
+    mcp:
+      server:
+        name: ${MCP_SERVER_NAME:xbox-mcp-server}
+        version: ${MCP_SERVER_VERSION:1.0.0}
+        sse-endpoint: /mcp/sse
+        sse-message-endpoint: /mcp/message
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+  # Redis配置（仅在xbox.session.store-type=redis时生效）
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: ${REDIS_TIMEOUT:3000ms}
+      lettuce:
+        pool:
+          max-active: ${REDIS_POOL_MAX_ACTIVE:8}
+          max-idle: ${REDIS_POOL_MAX_IDLE:8}
+          min-idle: ${REDIS_POOL_MIN_IDLE:2}
+          max-wait: ${REDIS_POOL_MAX_WAIT:-1ms}
+
+flowable:
+  async-executor-activate: false
+  # Set to false: schema initialization is handled by FlowableSchemaAutoConfiguration
+  database-schema-update: true
+  history-level: full
+
+jwt:
+  secret: ${JWT_SECRET:XboxAdminSecretKeyForJwtTokenGeneration2024VeryLongSecretKey}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+# 安全配置
+xbox:
+  # 会话存储配置
+  session:
+    # 存储类型: memory(默认，内存存储，单机模式) / redis(Redis存储，集群模式)
+    store-type: ${SESSION_STORE_TYPE:memory}
+  security:
+    # === 总开关：设为 false 关闭全部安全功能（方便性能测试） ===
+    enabled: true
+    # === 细粒度开关（仅在 enabled=true 时生效） ===
+    # 是否启用请求/响应体加密
+    encrypt-body: true
+    # 是否启用防篡改签名校验
+    sign-enabled: true
+    # 是否启用防重放（timestamp + nonce）
+    replay-enabled: true
+    # 是否启用 Host 头校验（防 Host 头篡改）
+    host-check-enabled: true
+    # 是否启用 XSS 检测
+    xss-enabled: true
+    # 是否启用 SQL 注入检测
+    sql-injection-enabled: true
+    # 是否启用安全响应头（CSP/HSTS/X-Frame-Options 等）
+    security-headers-enabled: true
+    # HMAC 签名密钥（生产环境请通过环境变量 SIGN_KEY 设置）
+    sign-key: ${SIGN_KEY:XboxSignKey2024SecretForHmac}
+    # 数据加密 AES 密钥（生产环境请通过环境变量 AES_KEY 设置）
+    aes-key: ${AES_KEY:XboxAesKey2024SecretForData}
+    # 允许的 Host 头白名单（防 Host 头篡改）
+    allowed-hosts: localhost,127.0.0.1
+    # CORS 允许的来源域名
+    cors-allowed-origins: http://localhost:3000,http://localhost:8080
+
+  crypto:
+    aes-key: ${CRYPTO_AES_KEY:default-aes-key-please-change-in-production}
+    hash-salt: ${CRYPTO_HASH_SALT:default-hash-salt-please-change}
+
+  # AI 对话速率限制
+  chat:
+    rate-limit:
+      enabled: ${CHAT_RATE_LIMIT_ENABLED:true}
+      send:
+        max-tokens: ${CHAT_RATE_LIMIT_SEND_MAX:10}       # 每用户每分钟最多 10 次非流式请求
+        refill-seconds: ${CHAT_RATE_LIMIT_SEND_REFILL:60}  # 令牌桶填充周期（秒）
+      stream:
+        max-tokens: ${CHAT_RATE_LIMIT_STREAM_MAX:5}       # 每用户每分钟最多 5 次流式请求
+        refill-seconds: ${CHAT_RATE_LIMIT_STREAM_REFILL:60}
+
+  # 调度任务安全配置
+  scheduler:
+    # 调度框架类型: spring(默认，使用Spring TaskScheduler) / xxl-job(使用xxl-job执行器)
+    type: ${SCHEDULER_TYPE:spring}
+    # 是否允许执行Shell脚本（默认关闭，存在安全风险）
+    shell-enabled: ${SCHEDULER_SHELL_ENABLED:false}
+    # xxl-job执行器配置（仅在type=xxl-job时生效）
+    xxl-job:
+      # xxl-job-admin管理后台地址
+      admin-addresses: ${XXL_JOB_ADMIN_ADDRESSES:http://127.0.0.1:8056/xxl}
+      # xxl-job-admin登录用户名（可在xxl-job-admin中创建与xbox同名的用户）
+      admin-username: ${XXL_JOB_ADMIN_USERNAME:admin}
+      # xxl-job-admin登录密码
+      admin-password: ${XXL_JOB_ADMIN_PASSWORD:123456}
+      # 执行器通讯TOKEN（需与xxl-job-admin配置一致）
+      access-token: ${XXL_JOB_ACCESS_TOKEN:}
+      executor:
+        # 执行器Appname（需与xxl-job-admin中配置一致）
+        appname: ${XXL_JOB_EXECUTOR_APPNAME:xbox-executor}
+        # 执行器注册地址（为空则自动获取）
+        address: ${XXL_JOB_EXECUTOR_ADDRESS:}
+        # 执行器IP（为空则自动获取）
+        ip: ${XXL_JOB_EXECUTOR_IP:}
+        # 执行器端口
+        port: ${XXL_JOB_EXECUTOR_PORT:9999}
+        # 执行器日志文件路径
+        log-path: ${XXL_JOB_EXECUTOR_LOGPATH:/data/applogs/xxl-job/jobhandler}
+        # 执行器日志保留天数
+        log-retention-days: ${XXL_JOB_EXECUTOR_LOGRETENTIONDAYS:30}
+        # xxl-job-admin中的执行器JobGroup ID（创建任务时使用）
+        job-group-id: ${XXL_JOB_EXECUTOR_JOB_GROUP_ID:0}
+
+  # Office文档解析服务配置（xbox-office远程服务）
+  office:
+    service-url: ${OFFICE_SERVICE_URL:http://localhost:8081/api}
+
+  # 附件管理配置
+  attachment:
+    # 文件存储根路径
+    base-path: ${ATTACHMENT_BASE_PATH:./data/attachments}
+    # 默认存储类型: FILE_SYSTEM(文件系统) / DATABASE(数据库)
+    default-storage-type: ${ATTACHMENT_STORAGE_TYPE:FILE_SYSTEM}
+    # 单文件最大大小（MB）
+    max-file-size-mb: ${ATTACHMENT_MAX_FILE_SIZE_MB:100}
+    # 允许的文件扩展名（为空则不限制），逗号分隔
+    allowed-extensions: ${ATTACHMENT_ALLOWED_EXTENSIONS:}
+    # 禁止的文件扩展名，逗号分隔
+    denied-extensions: ${ATTACHMENT_DENIED_EXTENSIONS:exe,bat,cmd,sh,js,vbs,com,scr,pif,msi,dll}
+    # 可预览的文件类型（通过浏览器直接打开）
+    previewable-types: ${ATTACHMENT_PREVIEWABLE_TYPES:pdf,png,jpg,jpeg,gif,bmp,webp,svg,txt,html,htm}
+    # xbox产生的附件存放路径（为空则使用base-path）
+    xbox-storage-path: ${ATTACHMENT_XBOX_PATH:}
+
+  # RAG向量检索配置
+  rag:
+    # 是否启用RAG向量检索
+    enabled: ${RAG_ENABLED:true}
+    # 向量存储类型: memory(默认，内存存储，单机模式) / redis(Redis存储，集群模式)
+    store-type: ${RAG_STORE_TYPE:memory}
+    # 嵌入模型类型: simple(默认，确定性哈希嵌入，免费离线) / openai(使用OpenAI兼容API，精确但消耗Token)
+    embedding-type: ${RAG_EMBEDDING_TYPE:simple}
+    # OpenAI嵌入模型配置（仅在embedding-type=openai时生效）
+    embedding:
+      # 嵌入模型API地址（可与聊天模型使用不同地址）
+      base-url: ${EMBEDDING_BASE_URL:}
+      # 嵌入模型API密钥（为空则复用spring.ai.openai.api-key）
+      api-key: ${EMBEDDING_API_KEY:}
+      # 嵌入模型名称
+      model: ${EMBEDDING_MODEL:text-embedding-3-small}
+
+  # MCP Server 配置（对外提供MCP协议服务）
+  mcp:
+    server:
+      name: ${MCP_SERVER_NAME:xbox-mcp-server}
+      version: ${MCP_SERVER_VERSION:1.0.0}
+      # 是否同时启用 Streamable HTTP 接入模式（默认仅 SSE）
+      # 启用后，智能体可通过 SSE (/mcp/sse) 或 Streamable HTTP (/mcp) 两种方式接入
+      streamable-enabled: ${MCP_STREAMABLE_ENABLED:false}
+
+logging:
+  level:
+    org.xbox: INFO
+  file:
+    path: ./logs
+    name: ./logs/xbox-admin.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 30
+      total-size-cap: 500MB
