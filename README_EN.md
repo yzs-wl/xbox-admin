@@ -43,11 +43,9 @@ English | [简体中文](./README.md)
 
 ```
 xbox-admin/
-├── boot/          # Backend project (Spring Boot multi-module)
-├── web/           # Frontend project (Vue.js + Vite)
-├── data/          # Database files
-├── base.md        # Requirements document
-├── platform.md    # Detailed design document
+├── xbox-admin.zip          # Program files
+├── chat.md        # Chat example
+├── chat.png    # System screenshot
 └── README.md      # Project documentation
 ```
 

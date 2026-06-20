@@ -43,11 +43,9 @@
 
 ```
 xbox-admin/
-├── boot/          # 后端工程（Spring Boot 多模块）
-├── web/           # 前端工程（Vue.js + Vite）
-├── data/          # 数据库文件
-├── base.md        # 需求文档
-├── platform.md    # 详细设计文档
+├── xbox-admin.zip        # 程序文件
+├── chat.md        # 聊天示例
+├── chat.png       # 系统截图
 └── README.md      # 项目说明
 ```
 
