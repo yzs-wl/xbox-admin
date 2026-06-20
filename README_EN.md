@@ -44,6 +44,8 @@ English | [简体中文](./README.md)
 ```
 xbox-admin/
 ├── xbox-admin.zip          # Program files
+├── application.yml        # SpringBoot config file
+├── logback-spring.xml        # logback config file
 ├── chat.md        # Chat example
 ├── chat.png    # System screenshot
 └── README.md      # Project documentation

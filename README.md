@@ -44,6 +44,8 @@
 ```
 xbox-admin/
 ├── xbox-admin.zip        # 程序文件
+├── application.yml        # 配置文件
+├── logback-spring.xml        # 日志文件
 ├── chat.md        # 聊天示例
 ├── chat.png       # 系统截图
 └── README.md      # 项目说明
