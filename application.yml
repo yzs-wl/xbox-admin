@@ -4,7 +4,7 @@ server:
 spring:
   application:
     name: xbox-admin
-  # ==================== Nacos微服务配置（默认关闭，独立运行不受影响） ====================
+  # ==================== Nacos微服务配置（默认关闭，独立运行不受影响） 
   cloud:
     nacos:
       username: ${NACOS_USERNAME:nacos}
