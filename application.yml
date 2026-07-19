@@ -4,7 +4,7 @@ server:
 spring:
   application:
     name: xbox-admin
-  # ==================== Nacos微服务配置（默认关闭，独立运行不受影响） 
+  # ==================== Nacos微服务配置（默认关闭，独立运行不受影响） ====================
   cloud:
     nacos:
       username: ${NACOS_USERNAME:nacos}
@@ -164,14 +164,14 @@ xbox:
       # 密码过期天数（0 表示不过期）
       password-expire-days: ${PASSWORD_EXPIRE_DAYS:0}
       # 是否启用登录验证码（图形点击验证，设为 false 可关闭验证码）
-      captcha-enabled: ${CAPTCHA_ENABLED:false}
+      captcha-enabled: ${CAPTCHA_ENABLED:true}
     # 通用 API 限流配置
     rate-limit:
       enabled: ${API_RATE_LIMIT_ENABLED:true}
-      # 每用户每周期最大请求数
-      max-requests: ${API_RATE_LIMIT_MAX:60}
-      # 填充周期（秒）
-      refill-seconds: ${API_RATE_LIMIT_REFILL:60}
+      # 每用户每周期最大请求数（支持UI批量并发：1主表+10子表≈30并发+重试）
+      max-requests: ${API_RATE_LIMIT_MAX:600}
+      # 填充周期（秒），600/30=20 req/sec 补充速率
+      refill-seconds: ${API_RATE_LIMIT_REFILL:30}
 
   # 幂等性防重复提交配置
   idempotent:
@@ -312,10 +312,10 @@ xbox:
     rate-limit:
       enabled: ${CHAT_RATE_LIMIT_ENABLED:true}
       send:
-        max-tokens: ${CHAT_RATE_LIMIT_SEND_MAX:10}       # 每用户每分钟最多 10 次非流式请求
+        max-tokens: ${CHAT_RATE_LIMIT_SEND_MAX:30}       # 每用户每分钟最多 30 次非流式请求
         refill-seconds: ${CHAT_RATE_LIMIT_SEND_REFILL:60}  # 令牌桶填充周期（秒）
       stream:
-        max-tokens: ${CHAT_RATE_LIMIT_STREAM_MAX:5}       # 每用户每分钟最多 5 次流式请求
+        max-tokens: ${CHAT_RATE_LIMIT_STREAM_MAX:15}       # 每用户每分钟最多 15 次流式请求
         refill-seconds: ${CHAT_RATE_LIMIT_STREAM_REFILL:60}
 
   # 调度任务安全配置
@@ -409,3 +409,4 @@ logging:
       max-file-size: 10MB
       max-history: 30
       total-size-cap: 500MB
+
