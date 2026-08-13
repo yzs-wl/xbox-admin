@@ -1,0 +1,430 @@
+server:
+  port: 9999
+
+spring:
+  application:
+    name: xbox-admin
+  # ==================== Nacos微服务配置（默认关闭，独立运行不受影响） ====================
+  cloud:
+    nacos:
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+        metadata:
+          env: ${NACOS_SERVICE_ENV:default}
+          version: ${NACOS_SERVICE_VERSION:1.0.0}
+  datasource:
+    url: jdbc:mysql://localhost:3306/xbox?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: root
+    #url: jdbc:h2:file:./data/xbox-admin
+    #driver-class-name: org.h2.Driver
+    #username: sa
+    #password:
+# ==================== HikariCP 连接池配置（应对高频操作） ====================
+    hikari:
+      # 连接池最大连接数（默认 10，频繁操作易耗尽，提高到 30）
+      maximum-pool-size: 30
+      # 最小空闲连接数，保持一定常驻连接避免频繁创建
+      minimum-idle: 10
+      # 连接空闲超时回收时间（毫秒，默认 600000=10分钟），调小以快速回收空闲连接
+      idle-timeout: 600000
+      # 连接最大存活时间（毫秒，默认 1800000=30分钟），必须小于数据库 wait_timeout
+      max-lifetime: 1800000
+      # 从池中获取连接的最长等待时间（毫秒），超时抛异常
+      connection-timeout: 30000
+      # 连接验证超时（毫秒）
+      validation-timeout: 5000
+      # 连接测试查询（H2 轻量，MySQL 可改为 SELECT 1）
+      connection-test-query: SELECT 1
+      # 连接池名称
+      pool-name: xbox-admin-HikariCP
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+        #dialect: org.hibernate.dialect.H2Dialect
+        bytecode:
+          provider: none
+  sql:
+    init:
+      mode: never
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:sk-placeholder}
+      base-url: ${OPENAI_BASE_URL:https://api.deepseek.com}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:deepseek-chat}
+          temperature: 0.7
+    # MCP Server 配置（由 spring-ai-starter-mcp-server-webmvc 自动配置）
+    mcp:
+      server:
+        name: ${MCP_SERVER_NAME:xbox-mcp-server}
+        version: ${MCP_SERVER_VERSION:1.0.0}
+        sse-endpoint: /mcp/sse
+        sse-message-endpoint: /mcp/message
+  # 邮件通知配置（NotificationService EMAIL 渠道）
+  mail:
+    host: ${MAIL_HOST:smtp.example.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    protocol: smtp
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+  # Redis配置（仅在xbox.session.store-type=redis时生效）
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: ${REDIS_TIMEOUT:3000ms}
+      lettuce:
+        pool:
+          max-active: ${REDIS_POOL_MAX_ACTIVE:8}
+          max-idle: ${REDIS_POOL_MAX_IDLE:8}
+          min-idle: ${REDIS_POOL_MIN_IDLE:2}
+          max-wait: ${REDIS_POOL_MAX_WAIT:-1ms}
+
+flowable:
+  async-executor-activate: false
+  # Set to false: schema initialization is handled by FlowableSchemaAutoConfiguration
+  # which executes META-INF/db/flowable-mysql-all-create.sql before ProcessEngine starts.
+  # This avoids conflicts between Flowable's built-in DDL and our custom SQL script.
+  database-schema-update: true
+  history-level: full
+
+jwt:
+  # 【安全警告】JWT密钥必须通过环境变量JWT_SECRET设置！
+  # 系统启动时会校验密钥强度，弱密钥/默认密钥将导致启动警告。
+  # 绝不应在生产环境使用默认值，攻击者可用此密钥伪造任意JWT Token。
+  secret: ${JWT_SECRET:XboxAdminSecretKeyForJwtTokenGeneration2024VeryLongSecretKey}
+  expiration: ${JWT_EXPIRATION:86400000}
+  # JWT时钟偏移容忍秒数，防止客户端/服务器时间差导致误判过期
+  clock-skew-seconds: ${JWT_CLOCK_SKEW_SECONDS:60}
+
+# 安全配置
+xbox:
+  # 会话存储配置
+  session:
+    # 存储类型: memory(默认，内存存储，单机模式) / redis(Redis存储，集群模式)
+    store-type: ${SESSION_STORE_TYPE:memory}
+  security:
+    # === 总开关：设为 false 关闭全部安全功能（方便性能测试） ===
+    enabled: true
+    # === 细粒度开关（仅在 enabled=true 时生效） ===
+    # 是否启用请求/响应体加密
+    encrypt-body: true
+    # 是否启用防篡改签名校验
+    sign-enabled: true
+    # 是否启用防重放（timestamp + nonce）
+    replay-enabled: true
+    # 是否启用 Host 头校验（防 Host 头篡改）
+    host-check-enabled: true
+    # 是否启用 XSS 检测
+    xss-enabled: true
+    # 是否启用 SQL 注入检测
+    sql-injection-enabled: true
+    # 是否启用安全响应头（CSP/HSTS/X-Frame-Options 等）
+    security-headers-enabled: true
+    # 【安全警告】以下密钥必须通过环境变量设置，默认值仅供开发/测试环境使用！
+    # 生产环境绝不应使用默认值，否则加密和签名可被攻击者完全破解。
+    # HMAC 签名密钥（生产环境请通过环境变量 SIGN_KEY 设置）
+    sign-key: ${SIGN_KEY:XboxSignKey2024SecretForHmac}
+    # 数据加密 AES 密钥（生产环境请通过环境变量 AES_KEY 设置）
+    aes-key: ${AES_KEY:XboxAesKey2024SecretForData}
+    # 允许的 Host 头白名单（防 Host 头篡改）
+    allowed-hosts: localhost,127.0.0.1
+    # CORS 允许的来源域名
+    cors-allowed-origins: http://localhost:3000,http://localhost:8080
+    # 登录安全策略
+    login-policy:
+      # 是否启用登录失败锁定
+      lock-enabled: ${LOGIN_LOCK_ENABLED:true}
+      # 连续登录失败次数阈值
+      max-failed-attempts: ${LOGIN_MAX_FAILED_ATTEMPTS:5}
+      # 账号锁定时长（分钟）
+      lock-duration-minutes: ${LOGIN_LOCK_DURATION_MINUTES:30}
+      # 是否启用密码复杂度校验
+      password-complexity-enabled: ${PASSWORD_COMPLEXITY_ENABLED:true}
+      # 密码最小长度
+      password-min-length: ${PASSWORD_MIN_LENGTH:8}
+      # 密码必须包含大写字母
+      password-require-uppercase: ${PASSWORD_REQUIRE_UPPERCASE:true}
+      # 密码必须包含小写字母
+      password-require-lowercase: ${PASSWORD_REQUIRE_LOWERCASE:true}
+      # 密码必须包含数字
+      password-require-digit: ${PASSWORD_REQUIRE_DIGIT:true}
+      # 密码必须包含特殊字符
+      password-require-special: ${PASSWORD_REQUIRE_SPECIAL:true}
+      # 密码历史校验：禁止重复使用最近 N 次密码（0 表示不校验）
+      password-history-count: ${PASSWORD_HISTORY_COUNT:5}
+      # 密码过期天数（0 表示不过期）
+      password-expire-days: ${PASSWORD_EXPIRE_DAYS:0}
+      # 是否启用登录验证码（图形点击验证，设为 false 可关闭验证码）
+      captcha-enabled: ${CAPTCHA_ENABLED:true}
+    # 通用 API 限流配置
+    rate-limit:
+      enabled: ${API_RATE_LIMIT_ENABLED:true}
+      # 每用户每周期最大请求数（支持UI批量并发：1主表+10子表≈30并发+重试）
+      max-requests: ${API_RATE_LIMIT_MAX:600}
+      # 填充周期（秒），600/30=20 req/sec 补充速率
+      refill-seconds: ${API_RATE_LIMIT_REFILL:30}
+
+  # 幂等性防重复提交配置
+  idempotent:
+    # 是否启用幂等性校验
+    enabled: ${IDEMPOTENT_ENABLED:true}
+    # 幂等键有效期（秒）
+    expire-seconds: ${IDEMPOTENT_EXPIRE_SECONDS:300}
+    # 需要幂等校验的路径模式（逗号分隔）
+    include-patterns: ${IDEMPOTENT_INCLUDE_PATTERNS:POST:/api/users,POST:/api/roles,POST:/api/organizations,POST:/api/employees,POST:/api/groups,POST:/api/auths,POST:/api/tenants}
+
+  # SSO 单点登录配置
+  sso:
+    # 是否启用 SSO（默认关闭，需配置 provider 后启用）
+    enabled: ${SSO_ENABLED:false}
+    # SSO 登录后自动创建本地用户
+    auto-create-user: ${SSO_AUTO_CREATE_USER:true}
+    # SSO 登录后自动分配的默认角色编码（逗号分隔）
+    default-roles: ${SSO_DEFAULT_ROLES:user}
+    # SSO 提供方配置（每个 provider 为一个独立的配置块）
+    # 启用 SSO 时需至少配置一个 provider，登录页面将自动显示对应 SSO 按钮。
+    #
+    # === Keycloak OIDC 示例 ===
+    # providers:
+    #   keycloak:
+    #     type: oidc
+    #     client-id: ${SSO_KEYCLOAK_CLIENT_ID:xbox-app}
+    #     client-secret: ${SSO_KEYCLOAK_CLIENT_SECRET:}
+    #     issuer-uri: ${SSO_KEYCLOAK_ISSUER_URI:https://keycloak.example.com/realms/xbox}
+    #     authorization-uri: ${SSO_KEYCLOAK_AUTH_URI:https://keycloak.example.com/realms/xbox/protocol/openid-connect/auth}
+    #     token-uri: ${SSO_KEYCLOAK_TOKEN_URI:https://keycloak.example.com/realms/xbox/protocol/openid-connect/token}
+    #     user-info-uri: ${SSO_KEYCLOAK_USERINFO_URI:https://keycloak.example.com/realms/xbox/protocol/openid-connect/userinfo}
+    #     jwk-set-uri: ${SSO_KEYCLOAK_JWK_URI:https://keycloak.example.com/realms/xbox/protocol/openid-connect/certs}
+    #     scope: openid,profile,email
+    #
+    # === GitHub OAuth2 示例 ===
+    # providers:
+    #   github:
+    #     type: oauth2
+    #     client-id: ${SSO_GITHUB_CLIENT_ID:}
+    #     client-secret: ${SSO_GITHUB_CLIENT_SECRET:}
+    #     authorization-uri: https://github.com/login/oauth/authorize
+    #     token-uri: https://github.com/login/oauth/access_token
+    #     user-info-uri: https://api.github.com/user
+    #     scope: read:user,user:email
+    #
+    # === 个人微信 (WeChat 开放平台) 示例 ===
+    # providers:
+    #   wechat:
+    #     type: wechat                                             # 微信开放平台网站应用扫码登录
+    #     client-id: ${SSO_WECHAT_APP_ID:your-app-id}             # 网站应用 AppID
+    #     client-secret: ${SSO_WECHAT_APP_SECRET:your-app-secret} # 网站应用 AppSecret
+    #     authorization-uri: https://open.weixin.qq.com/connect/qrconnect
+    #     token-uri: https://api.weixin.qq.com/sns/oauth2/access_token
+    #     user-info-uri: https://api.weixin.qq.com/sns/userinfo
+    #     scope: snsapi_login                                      # PC 网页扫码登录必须用 snsapi_login
+    #
+    # === 企业微信 (WeCom) 示例 ===
+    # providers:
+    #   wecom:
+    #     type: wecom
+    #     client-id: ${SSO_WECOM_CORP_ID:your-corp-id}          # 企业ID（CorpId）
+    #     client-secret: ${SSO_WECOM_AGENT_SECRET:your-agent-secret}  # 应用的Secret
+    #     agent-id: ${SSO_WECOM_AGENT_ID:your-agent-id}           # 应用的AgentId
+    #     authorization-uri: https://open.work.weixin.qq.com/wwopen/sso/qrConnect
+    #     token-uri: https://qyapi.weixin.qq.com/cgi-bin/gettoken
+    #     user-info-uri: https://qyapi.weixin.qq.com/cgi-bin/user/getuserinfo
+    #     scope: snsapi_base
+    #
+    # === Azure AD OIDC 示例 ===
+    # providers:
+    #   azure:
+    #     type: oidc
+    #     client-id: ${SSO_AZURE_CLIENT_ID:}
+    #     client-secret: ${SSO_AZURE_CLIENT_SECRET:}
+    #     issuer-uri: ${SSO_AZURE_ISSUER_URI:https://login.microsoftonline.com/<tenant-id>/v2.0}
+    #     authorization-uri: https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/authorize
+    #     token-uri: https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token
+    #     user-info-uri: https://graph.microsoft.com/oidc/userinfo
+    #     jwk-set-uri: https://login.microsoftonline.com/<tenant-id>/discovery/v2.0/keys
+    #     scope: openid,profile,email
+    #
+    # === Okta OIDC 示例 ===
+    # providers:
+    #   okta:
+    #     type: oidc
+    #     client-id: ${SSO_OKTA_CLIENT_ID:}
+    #     client-secret: ${SSO_OKTA_CLIENT_SECRET:}
+    #     issuer-uri: ${SSO_OKTA_ISSUER_URI:https://<your-org>.okta.com/oauth2/default}
+    #     authorization-uri: https://<your-org>.okta.com/oauth2/default/v1/authorize
+    #     token-uri: https://<your-org>.okta.com/oauth2/default/v1/token
+    #     user-info-uri: https://<your-org>.okta.com/oauth2/default/v1/userinfo
+    #     jwk-set-uri: https://<your-org>.okta.com/oauth2/default/v1/keys
+    #     scope: openid,profile,email
+    #
+    # === Google OIDC 示例 ===
+    # providers:
+    #   google:
+    #     type: oidc
+    #     client-id: ${SSO_GOOGLE_CLIENT_ID:}
+    #     client-secret: ${SSO_GOOGLE_CLIENT_SECRET:}
+    #     issuer-uri: https://accounts.google.com
+    #     authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+    #     token-uri: https://oauth2.googleapis.com/token
+    #     user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+    #     jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+    #     scope: openid,profile,email
+    #
+    # === 钉钉 (DingTalk) 示例 ===
+    # providers:
+    #   dingtalk:
+    #     type: oauth2
+    #     client-id: ${SSO_DINGTALK_APP_ID:}
+    #     client-secret: ${SSO_DINGTALK_APP_SECRET:}
+    #     authorization-uri: https://login.dingtalk.com/oauth2/auth?redirect_uri={redirect_uri}&response_type=code&client_id={client_id}&scope=openid&prompt=consent
+    #     token-uri: https://api.dingtalk.com/v1.0/oauth2/access_token
+    #     user-info-uri: https://api.dingtalk.com/v1.0/contact/users/me
+    #     scope: openid
+    #
+    # === 飞书 (Feishu/Lark) 示例 ===
+    # providers:
+    #   feishu:
+    #     type: oauth2
+    #     client-id: ${SSO_FEISHU_APP_ID:}
+    #     client-secret: ${SSO_FEISHU_APP_SECRET:}
+    #     authorization-uri: https://open.feishu.cn/open-apis/authen/v1/authorize?app_id={client_id}&redirect_uri={redirect_uri}
+    #     token-uri: https://open.feishu.cn/open-apis/authen/v1/access_token
+    #     user-info-uri: https://open.feishu.cn/open-apis/authen/v1/user_info
+    #     scope: contact:user.id:read
+    providers: {}
+
+  crypto:
+    # 【安全警告】以下密钥必须通过环境变量设置！
+    aes-key: ${CRYPTO_AES_KEY:default-aes-key-please-change-in-production}
+    hash-salt: ${CRYPTO_HASH_SALT:default-hash-salt-please-change}
+
+  # AI 对话速率限制
+  chat:
+    rate-limit:
+      enabled: ${CHAT_RATE_LIMIT_ENABLED:true}
+      send:
+        max-tokens: ${CHAT_RATE_LIMIT_SEND_MAX:30}       # 每用户每分钟最多 30 次非流式请求
+        refill-seconds: ${CHAT_RATE_LIMIT_SEND_REFILL:60}  # 令牌桶填充周期（秒）
+      stream:
+        max-tokens: ${CHAT_RATE_LIMIT_STREAM_MAX:15}       # 每用户每分钟最多 15 次流式请求
+        refill-seconds: ${CHAT_RATE_LIMIT_STREAM_REFILL:60}
+
+  # 调度任务安全配置
+  scheduler:
+    # 调度框架类型: spring(默认，使用Spring TaskScheduler) / xxl-job(使用xxl-job执行器)
+    type: ${SCHEDULER_TYPE:spring}
+    # 是否允许执行Shell脚本（默认关闭，存在安全风险）
+    shell-enabled: ${SCHEDULER_SHELL_ENABLED:false}
+    # xxl-job执行器配置（仅在type=xxl-job时生效）
+    xxl-job:
+      # xxl-job-admin管理后台地址
+      admin-addresses: ${XXL_JOB_ADMIN_ADDRESSES:http://127.0.0.1:8056/xxl}
+      # xxl-job-admin登录用户名（可在xxl-job-admin中创建与xbox同名的用户）
+      admin-username: ${XXL_JOB_ADMIN_USERNAME:admin}
+      # xxl-job-admin登录密码（【安全警告】默认值仅供测试，生产环境必须设置强密码）
+      admin-password: ${XXL_JOB_ADMIN_PASSWORD:123456}
+      # 执行器通讯TOKEN（需与xxl-job-admin配置一致）
+      access-token: ${XXL_JOB_ACCESS_TOKEN:}
+      executor:
+        # 执行器Appname（需与xxl-job-admin中配置一致）
+        appname: ${XXL_JOB_EXECUTOR_APPNAME:xbox-executor}
+        # 执行器注册地址（为空则自动获取）
+        address: ${XXL_JOB_EXECUTOR_ADDRESS:}
+        # 执行器IP（为空则自动获取）
+        ip: ${XXL_JOB_EXECUTOR_IP:}
+        # 执行器端口
+        port: ${XXL_JOB_EXECUTOR_PORT:9999}
+        # 执行器日志文件路径
+        log-path: ${XXL_JOB_EXECUTOR_LOGPATH:/data/applogs/xxl-job/jobhandler}
+        # 执行器日志保留天数
+        log-retention-days: ${XXL_JOB_EXECUTOR_LOGRETENTIONDAYS:30}
+        # xxl-job-admin中的执行器JobGroup ID（创建任务时使用）
+        job-group-id: ${XXL_JOB_EXECUTOR_JOB_GROUP_ID:0}
+
+  # Office文档解析服务配置（xbox-office远程服务）
+  office:
+    service-url: ${OFFICE_SERVICE_URL:http://localhost:8081/api}
+
+  # 附件管理配置
+  attachment:
+    # 文件存储根路径
+    base-path: ${ATTACHMENT_BASE_PATH:./data/attachments}
+    # 默认存储类型: FILE_SYSTEM(文件系统) / DATABASE(数据库)
+    default-storage-type: ${ATTACHMENT_STORAGE_TYPE:FILE_SYSTEM}
+    # 单文件最大大小（MB）
+    max-file-size-mb: ${ATTACHMENT_MAX_FILE_SIZE_MB:100}
+    # 允许的文件扩展名（为空则不限制），逗号分隔
+    allowed-extensions: ${ATTACHMENT_ALLOWED_EXTENSIONS:}
+    # 禁止的文件扩展名，逗号分隔
+    denied-extensions: ${ATTACHMENT_DENIED_EXTENSIONS:exe,bat,cmd,sh,js,vbs,com,scr,pif,msi,dll}
+    # 可预览的文件类型（通过浏览器直接打开）
+    # 【安全增强】移除 html/htm/svg 等可执行内容类型，防止存储型XSS攻击
+    previewable-types: ${ATTACHMENT_PREVIEWABLE_TYPES:pdf,png,jpg,jpeg,gif,bmp,webp,txt}
+    # xbox产生的附件存放路径（为空则使用base-path）
+    xbox-storage-path: ${ATTACHMENT_XBOX_PATH:}
+
+  # RAG向量检索配置
+  rag:
+    # 是否启用RAG向量检索
+    enabled: ${RAG_ENABLED:true}
+    # 向量存储类型: memory(默认，内存存储，单机模式) / redis(Redis存储，集群模式)
+    store-type: ${RAG_STORE_TYPE:memory}
+    # 嵌入模型类型: simple(默认，确定性哈希嵌入，免费离线) / openai(使用OpenAI兼容API，精确但消耗Token)
+    embedding-type: ${RAG_EMBEDDING_TYPE:simple}
+    # OpenAI嵌入模型配置（仅在embedding-type=openai时生效）
+    embedding:
+      # 嵌入模型API地址（可与聊天模型使用不同地址）
+      base-url: ${EMBEDDING_BASE_URL:}
+      # 嵌入模型API密钥（为空则复用spring.ai.openai.api-key）
+      api-key: ${EMBEDDING_API_KEY:}
+      # 嵌入模型名称
+      model: ${EMBEDDING_MODEL:text-embedding-3-small}
+
+  # MCP Server 配置（对外提供MCP协议服务）
+  mcp:
+    server:
+      name: ${MCP_SERVER_NAME:xbox-mcp-server}
+      version: ${MCP_SERVER_VERSION:1.0.0}
+      # 是否同时启用 Streamable HTTP 接入模式（默认仅 SSE）
+      # 启用后，智能体可通过 SSE (/mcp/sse) 或 Streamable HTTP (/mcp) 两种方式接入
+      streamable-enabled: ${MCP_STREAMABLE_ENABLED:true}
+
+logging:
+  level:
+    org.xbox: INFO
+  file:
+    path: ./logs
+    name: ./logs/xbox-admin.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 30
+      total-size-cap: 500MB
+
