@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 9999
 
 spring:
   application:
@@ -26,6 +26,24 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
+    # ==================== HikariCP 连接池配置（应对高频操作） ====================
+    hikari:
+      # 连接池最大连接数（默认 10，频繁操作易耗尽，提高到 30）
+      maximum-pool-size: 30
+      # 最小空闲连接数，保持一定常驻连接避免频繁创建
+      minimum-idle: 10
+      # 连接空闲超时回收时间（毫秒，默认 600000=10分钟），调小以快速回收空闲连接
+      idle-timeout: 600000
+      # 连接最大存活时间（毫秒，默认 1800000=30分钟），必须小于数据库 wait_timeout
+      max-lifetime: 1800000
+      # 从池中获取连接的最长等待时间（毫秒），超时抛异常
+      connection-timeout: 30000
+      # 连接验证超时（毫秒）
+      validation-timeout: 5000
+      # 连接测试查询（H2 轻量，MySQL 可改为 SELECT 1）
+      connection-test-query: SELECT 1
+      # 连接池名称
+      pool-name: xbox-admin-HikariCP
   jpa:
     hibernate:
       ddl-auto: update
