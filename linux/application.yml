@@ -26,7 +26,7 @@ spring:
     #driver-class-name: org.h2.Driver
     #username: sa
     #password:
-# ==================== HikariCP 连接池配置（应对高频操作） ====================
+    # ==================== HikariCP 连接池配置（应对高频操作） ====================
     hikari:
       # 连接池最大连接数（默认 10，频繁操作易耗尽，提高到 30）
       maximum-pool-size: 30
@@ -132,6 +132,12 @@ xbox:
   security:
     # === 总开关：设为 false 关闭全部安全功能（方便性能测试） ===
     enabled: true
+    # === 【等保三级-会话治理】 ===
+    session:
+      # 单用户最大并发会话数：1=新登录互踢（等保推荐）；0=不限制
+      max-concurrent-sessions: ${SESSION_MAX_CONCURRENT:1}
+      # 空闲超时（分钟）：超时无请求的会话自动失效（等保要求≤30）；0=不启用
+      idle-timeout-minutes: ${SESSION_IDLE_TIMEOUT_MINUTES:30}
     # === 细粒度开关（仅在 enabled=true 时生效） ===
     # 是否启用请求/响应体加密
     encrypt-body: true
@@ -183,6 +189,12 @@ xbox:
       password-expire-days: ${PASSWORD_EXPIRE_DAYS:0}
       # 是否启用登录验证码（图形点击验证，设为 false 可关闭验证码）
       captcha-enabled: ${CAPTCHA_ENABLED:true}
+      # 【等保三级】登录接口 IP+用户名维度限流（防分布式撞库，与账号锁定互补）
+      login-rate-limit-enabled: ${LOGIN_RATE_LIMIT_ENABLED:true}
+      # 限流窗口内最大尝试次数
+      login-rate-limit-max-attempts: ${LOGIN_RATE_LIMIT_MAX_ATTEMPTS:20}
+      # 限流窗口时长（分钟）
+      login-rate-limit-window-minutes: ${LOGIN_RATE_LIMIT_WINDOW_MINUTES:5}
     # 通用 API 限流配置
     rate-limit:
       enabled: ${API_RATE_LIMIT_ENABLED:true}
@@ -190,6 +202,27 @@ xbox:
       max-requests: ${API_RATE_LIMIT_MAX:600}
       # 填充周期（秒），600/30=20 req/sec 补充速率
       refill-seconds: ${API_RATE_LIMIT_REFILL:30}
+    # 【等保三级-安全审计】审计完整性保护与留存策略
+    audit:
+      # 审计记录留存天数（等保三级要求≥180天，配置小于180时按180执行）
+      retention-days: ${AUDIT_RETENTION_DAYS:365}
+      # 每日链式哈希摘要生成时间（默认每日 02:20，含历史缺失日期补算）
+      digest-cron: ${AUDIT_DIGEST_CRON:0 20 2 * * ?}
+      # 超留存期审计记录清理时间（默认每日 02:40）
+      cleanup-cron: ${AUDIT_CLEANUP_CRON:0 40 2 * * ?}
+
+  # 【等保三级-数据备份恢复】数据库备份配置
+  backup:
+    # 是否启用定时备份（生产环境建议开启，prod profile 默认开启）
+    enabled: ${BACKUP_ENABLED:false}
+    # 备份文件目录
+    dir: ${BACKUP_DIR:./data/backup}
+    # 备份文件保留天数
+    retention-days: ${BACKUP_RETENTION_DAYS:30}
+    # 备份失败告警接收邮箱（空则不发送告警）
+    notify-email: ${BACKUP_NOTIFY_EMAIL:}
+    # 定时备份时间（默认每日 03:30）
+    cron: ${BACKUP_CRON:0 30 3 * * ?}
 
   # 幂等性防重复提交配置
   idempotent:
@@ -335,6 +368,28 @@ xbox:
       stream:
         max-tokens: ${CHAT_RATE_LIMIT_STREAM_MAX:15}       # 每用户每分钟最多 15 次流式请求
         refill-seconds: ${CHAT_RATE_LIMIT_STREAM_REFILL:60}
+
+  # ==================== 大模型对话成本控制 ====================
+  # 说明：启用后，普通用户只能选择对其可见(enabled+userVisible)且角色允许(allowedRoles)的模型，
+  # 并对每用户施加 频率/并发/日·月 token 额度 限制，实时计量花费。
+  # 限流/并发复用 chat 模块的 TokenStore（内存 / Redis 委托切换，由 spring.data.redis 是否配置决定）。
+  cost-control:
+    enabled: ${COST_CONTROL_ENABLED:true}
+    # 单次请求最大输入字符数（超过直接拒绝，防止极端长文本烧钱）
+    max-input-chars: ${COST_CONTROL_MAX_INPUT_CHARS:20000}
+    # 每用户每分钟最大请求数
+    rate-limit-per-minute: ${COST_CONTROL_RATE_LIMIT:10}
+    # 每用户最大并发对话数
+    concurrency-limit: ${COST_CONTROL_CONCURRENCY:3}
+    # 默认每日 token 额度（全体用户通用；<=0 表示不限制）
+    default-daily-token-quota: ${COST_CONTROL_DAILY_QUOTA:200000}
+    # 默认每月 token 额度
+    default-monthly-token-quota: ${COST_CONTROL_MONTHLY_QUOTA:5000000}
+    # 各成本等级每千 token 默认单价（单位：分）
+    price-per-1k-tokens:
+      cheap: ${COST_CONTROL_PRICE_CHEAP:0.005}
+      standard: ${COST_CONTROL_PRICE_STANDARD:0.02}
+      premium: ${COST_CONTROL_PRICE_PREMIUM:0.15}
 
   # 调度任务安全配置
   scheduler:
