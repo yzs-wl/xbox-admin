@@ -125,6 +125,14 @@ jwt:
 
 # 安全配置
 xbox:
+  # ==================== 存储层配置（行存 + 列存） ====================
+  storage:
+    # 是否启用存储路由；false 时一律走行存（列存接入后可一键关闭，回到纯行存行为）
+    routing-enabled: ${XBOX_STORAGE_ROUTING_ENABLED:true}
+    # AP 判定的最小预估扫描行数
+    ap-scan-threshold: ${XBOX_STORAGE_AP_SCAN_THRESHOLD:5000}
+    # 投影列 / 模型总列数 的上限比值，超过视为全列扫描，走行存
+    projection-ratio: ${XBOX_STORAGE_PROJECTION_RATIO:0.6}
   # 会话存储配置
   session:
     # 存储类型: memory(默认，内存存储，单机模式) / redis(Redis存储，集群模式)
