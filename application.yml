@@ -376,6 +376,38 @@ xbox:
       stream:
         max-tokens: ${CHAT_RATE_LIMIT_STREAM_MAX:15}       # 每用户每分钟最多 15 次流式请求
         refill-seconds: ${CHAT_RATE_LIMIT_STREAM_REFILL:60}
+    # ==================== 在线/离线模式 ====================
+    # 离线模式：开启后聊天接口不再构建/连接大模型，直接走本地离线兜底（只读知识库/工具直调），
+    # 彻底跳过网络探测，适合纯内网/无外网/模型全部不可达的环境。
+    offline-mode: ${CHAT_OFFLINE_MODE:false}
+    # ==================== 大模型降级容错 ====================
+    # 说明：模型不可用时的三级降级 —— ① 故障转移到备用模型；② 本地知识库离线检索直答；③ 明确报错提示。
+    # 设为 false 可整体关闭降级体系，回到改造前"一次失败即报错"的行为。
+    fallback:
+      enabled: ${CHAT_FALLBACK_ENABLED:true}
+      # 单次请求最多尝试多少个候选模型（含首选）。模型多时避免串行重试拖慢响应
+      max-attempts: ${CHAT_FALLBACK_MAX_ATTEMPTS:3}
+      # 熔断器：连续失败多少次后熔断该模型
+      circuit-failure-threshold: ${CHAT_FALLBACK_CIRCUIT_THRESHOLD:2}
+      # 熔断器：熔断后冷却多少秒（冷却结束放行一个探路请求）
+      circuit-open-seconds: ${CHAT_FALLBACK_CIRCUIT_OPEN_SECONDS:60}
+      # 本地离线回答返回的知识片段条数
+      offline-top-k: ${CHAT_FALLBACK_OFFLINE_TOP_K:3}
+      # ==================== 离线工具直调（本地意图路由） ====================
+      # 说明：模型全不可用时，用纯本地算法把问句匹配到已注册工具并直接执行（不经过大模型）。
+      # 安全约束：默认只允许读类工具；必填参数抽不全或存在歧义时不执行，改为提示用户补齐/澄清。
+      offline-tools:
+        enabled: ${CHAT_FALLBACK_OFFLINE_TOOLS_ENABLED:true}
+        # 是否允许离线直调写操作工具（add/edit/delete/assign 等）。默认 false，强烈不建议在生产开启
+        allow-write: ${CHAT_FALLBACK_OFFLINE_TOOLS_ALLOW_WRITE:false}
+        # 命中最低分（0~1），调高可减少误执行，调低可提高命中率
+        min-score: ${CHAT_FALLBACK_OFFLINE_TOOLS_MIN_SCORE:0.45}
+        # 问句被工具描述覆盖的最低比例，避免"查一下"这类短句被偶然匹配
+        min-coverage: ${CHAT_FALLBACK_OFFLINE_TOOLS_MIN_COVERAGE:0.5}
+        # 前两名分差小于该值时判定为歧义，不执行
+        ambiguity-gap: ${CHAT_FALLBACK_OFFLINE_TOOLS_AMBIGUITY_GAP:0.05}
+        # 工具返回结果展示的最大字符数
+        max-result-chars: ${CHAT_FALLBACK_OFFLINE_TOOLS_MAX_RESULT:1500}
 
   # ==================== 大模型对话成本控制 ====================
   # 说明：启用后，普通用户只能选择对其可见(enabled+userVisible)且角色允许(allowedRoles)的模型，
@@ -490,4 +522,3 @@ logging:
       max-file-size: 10MB
       max-history: 30
       total-size-cap: 500MB
-
