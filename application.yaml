@@ -4,8 +4,11 @@ server:
 spring:
   application:
     name: xbox-admin
-  # ==================== Nacos微服务配置（默认关闭，独立运行不受影响） ====================
+  # ==================== 服务注册中心（Nacos / CSE / Consul，全部默认关闭，独立运行不受影响） ====================
+  # 统一实现：config/registry 包下三个客户端均使用 HTTP Open API 注册（JDK HttpClient），
+  # 不引入任何注册中心 SDK 依赖，兼容 GraalVM Native Image。三者可同时启用（多注册中心并存）。
   cloud:
+    # ---------------- Nacos（HTTP Open API） ----------------
     nacos:
       username: ${NACOS_USERNAME:nacos}
       password: ${NACOS_PASSWORD:nacos}
@@ -17,6 +20,77 @@ spring:
         metadata:
           env: ${NACOS_SERVICE_ENV:default}
           version: ${NACOS_SERVICE_VERSION:1.0.0}
+
+    # ---------------- CSE（华为云 CSE / ServiceComb Service Center，HTTP Open API） ----------------
+    cse:
+      # 鉴权令牌（开启鉴权时必填；为空则不发送鉴权头）
+      token: ${CSE_TOKEN:}
+      # 鉴权头名称与前缀：华为云 CSE 2.x 用 Authorization + "Bearer "；自建 Service Center 常用 X-Auth-Token + 空前缀
+      auth-header: ${CSE_AUTH_HEADER:Authorization}
+      token-prefix: ${CSE_TOKEN_PREFIX:Bearer }
+      discovery:
+        enabled: ${CSE_DISCOVERY_ENABLED:false}
+        # 注册中心地址：https://cse.cn-north-4.myhuaweicloud.com 或自建 http://127.0.0.1:30100
+        server-addr: ${CSE_ADDR:http://127.0.0.1:30100}
+        # 项目ID（华为云必填；自建 Service Center 用 default）
+        project-id: ${CSE_PROJECT_ID:default}
+        app-id: ${CSE_APP_ID:default}
+        service-name: ${CSE_SERVICE_NAME:${spring.application.name}}
+        version: ${CSE_SERVICE_VERSION:1.0.0}
+        environment: ${CSE_ENVIRONMENT:}
+        # 多租户标识（华为云 CSE 需要时填写，会作为 X-Consumer-Tenant 发送）
+        tenant: ${CSE_TENANT:}
+        ip: ${CSE_IP:}
+        port: ${CSE_PORT:}
+        status: ${CSE_STATUS:UP}
+        # 健康检查：push=客户端定时心跳（默认）；pull=服务端探测；none=不检查
+        health-check-mode: ${CSE_HEALTH_CHECK_MODE:push}
+        health-check-interval: ${CSE_HEALTH_CHECK_INTERVAL:30}
+        health-check-times: ${CSE_HEALTH_CHECK_TIMES:3}
+        # 注销时是否顺带删除微服务定义（多实例共享时保持 false）
+        delete-microservice: ${CSE_DELETE_MICROSERVICE:false}
+        # 数据中心信息。注意：Service Center / 华为云 CSE 对 DataCenterInfo 的
+        # name / region / availableZone 三者施加了同一套校验
+        # （Min:1 / Max:128 / ^[A-Za-z0-9_.-]+$），传空串或省略字段都会导致注册 400
+        # （省略时服务端反序列化为空串，一样报 invalid value ''）。
+        # 因此三者留空时都会自动兜底：region 优先从 server-addr 推导
+        # （cse.<region>.myhuaweicloud.com → <region>），推导不出则回退 default；
+        # name / availableZone 直接回退 default。需要固定值时显式设置对应环境变量。
+        datacenter:
+          name: ${CSE_DATACENTER_NAME:default}
+          region: ${CSE_DATACENTER_REGION:}
+          available-zone: ${CSE_DATACENTER_ZONE:}
+        metadata:
+          env: ${CSE_SERVICE_ENV:default}
+          version: ${CSE_SERVICE_VERSION:1.0.0}
+
+    # ---------------- Consul（Agent HTTP API） ----------------
+    consul:
+      scheme: ${CONSUL_SCHEME:http}
+      host: ${CONSUL_HOST:127.0.0.1}
+      port: ${CONSUL_PORT:8500}
+      # ACL Token（Consul 开启 ACL 时必填）
+      token: ${CONSUL_TOKEN:}
+      datacenter: ${CONSUL_DATACENTER:}
+      discovery:
+        enabled: ${CONSUL_DISCOVERY_ENABLED:false}
+        # 企业版命名空间（OSS 版留空）
+        namespace: ${CONSUL_NAMESPACE:}
+        service-name: ${CONSUL_SERVICE_NAME:${spring.application.name}}
+        instance-id: ${CONSUL_INSTANCE_ID:}
+        ip: ${CONSUL_IP:}
+        port: ${CONSUL_SERVICE_PORT:}
+        tags: ${CONSUL_TAGS:}
+        # 健康检查：配置 health-check-url 则用 HTTP 探活（agent 主动探测，无客户端心跳）；
+        # 否则使用 TTL 检查（由客户端定时 check/pass 续期）
+        health-check-url: ${CONSUL_HEALTH_CHECK_URL:}
+        health-check-interval: ${CONSUL_HEALTH_CHECK_INTERVAL:10s}
+        health-check-timeout: ${CONSUL_HEALTH_CHECK_TIMEOUT:3s}
+        health-check-critical-timeout: ${CONSUL_HEALTH_CHECK_CRITICAL_TIMEOUT:1m}
+        ttl: ${CONSUL_TTL:15s}
+        metadata:
+          env: ${CONSUL_SERVICE_ENV:default}
+          version: ${CONSUL_SERVICE_VERSION:1.0.0}
   datasource:
     # ==================== 数据库（支持 H2 / MySQL / PostgreSQL，驱动均已内置） ====================
     # 切换方式：放开对应 url/driver-class-name/username/password 三行，注释掉其余即可；
@@ -66,6 +140,15 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        # JDBC 批量写入：让同一事务内的多条语句合并发送，减少数据库往返（主数据同步受益）。
+        # order_* 按表分组后再批处理，是批量真正生效的前提。
+        # 注意：实体主键用的是 IDENTITY 自增，Hibernate 必须逐行取回生成主键，
+        #      因此 INSERT 的批处理收益有限（UPDATE 与多语句事务不受此限制）。
+        #      若后续要进一步提升同步吞吐，需要改主键策略或走"显式 saveAll + 分批 flush"的批量写路径。
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
         # 方言留空由 Hibernate 依据 JDBC 元数据自动识别（H2 / MySQL / PostgreSQL 均可）。
         # 仅在需要覆盖时才显式指定，例如：
         #   dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -104,6 +187,15 @@ spring:
           auth: true
           starttls:
             enable: true
+  # ==================== 定时任务线程池 ====================
+  # 项目里所有 @Scheduled（主数据同步、推送收件箱消费与清理、审计完整性摘要、备份等）
+  # 共用这一个池。Spring Boot 默认 pool.size=1 —— 主数据增量同步（可能几分钟）
+  # 会把同一池里的其它定时任务全部堵住，因此这里放宽到 4。
+  task:
+    scheduling:
+      pool:
+        size: ${SPRING_TASK_SCHEDULING_POOL_SIZE:4}
+      thread-name-prefix: ${SPRING_TASK_SCHEDULING_THREAD_PREFIX:xbox-sched-}
   servlet:
     multipart:
       max-file-size: 100MB
@@ -154,6 +246,22 @@ xbox:
   session:
     # 存储类型: memory(默认，内存存储，单机模式) / redis(Redis存储，集群模式)
     store-type: ${SESSION_STORE_TYPE:memory}
+  # ==================== 缓存（单机 Caffeine / 集群 Redis） ====================
+  # 单机用 Caffeine（零依赖）；集群切 Redis：所有节点共享同一份缓存，
+  # 并用 Redis 发布/订阅广播"缓存已失效"，让各节点的进程内缓存也能立即清掉。
+  cache:
+    # 缓存后端: caffeine(默认，单机内存) / redis(集群共享)
+    store-type: ${XBOX_CACHE_STORE_TYPE:caffeine}
+    # 缓存 TTL（秒），对应 permissions/roles/menuTree
+    ttl-seconds: ${XBOX_CACHE_TTL_SECONDS:600}
+    # Redis 缓存键前缀（避免与同实例的其它业务键冲突）
+    redis-key-prefix: ${XBOX_CACHE_REDIS_PREFIX:xbox:cache:}
+    # 集群间"缓存失效广播"：节点 A 清缓存后通过 Redis Pub/Sub 通知其它节点清<b>本地</b>缓存。
+    # 为什么需要：即便缓存后端换成 Redis，各节点仍有进程内缓存（主数据门面的 Caffeine 读缓存），
+    # 不广播就只能等 TTL 过期。需要 spring.data.redis.* 可用；Redis 不可用时自动退化为仅本地清理。
+    cluster-notify: ${XBOX_CACHE_CLUSTER_NOTIFY:false}
+    # 广播频道名
+    cluster-channel: ${XBOX_CACHE_CLUSTER_CHANNEL:xbox:cache:evict}
   security:
     # === 总开关：设为 false 关闭全部安全功能（方便性能测试） ===
     enabled: true
@@ -527,6 +635,184 @@ xbox:
       # 是否同时启用 Streamable HTTP 接入模式（默认仅 SSE）
       # 启用后，智能体可通过 SSE (/mcp/sse) 或 Streamable HTTP (/mcp) 两种方式接入
       streamable-enabled: ${MCP_STREAMABLE_ENABLED:true}
+
+  # 流程引擎适配层：流程引擎可插拔（内置 Flowable 或 第三方 BPMN 引擎）
+  # 设计要点：引擎语义（部署/实例/任务/历史/驳回/流程图/评论）走 ProcessEnginePort，
+  #          由 FlowService 按 isRemote() 分叉；事件脚本、业务规则、业务键约定、
+  #          表单视图配置、操作日志始终由 xbox 自己负责，因此换引擎不会丢失这些能力。
+  # 注意：engine=embedded 时流程仍由内置 Flowable 执行，适配层不参与；
+  #      engine=http 时流程真实落在第三方引擎，本地不再保留实例/任务/历史（趋势图改拉第三方）。
+  flow:
+    # 引擎类型: embedded(内置 Flowable) / http(第三方 BPMN 引擎)；此处默认 http
+    engine: ${FLOW_ENGINE:embedded}
+    # 外部引擎不可用时是否回退内置引擎。默认 false：宁可显式失败，
+    # 因为回退会让"流程跑在第三方引擎上"的假设失真（实例/任务/历史实际落在本地库）
+    fallback-to-embedded: ${FLOW_FALLBACK_TO_EMBEDDED:false}
+    # 业务键分隔符：modelName:dataId / batch:modelName:batchId 是 xbox 与业务模型的契约，换引擎必须沿用
+    business-key-separator: ${FLOW_BUSINESS_KEY_SEPARATOR::}
+    http:
+      # 第三方引擎基础地址；为空表示该适配器未启用（不影响启动，调用时才报错）
+      base-url: ${FLOW_HTTP_BASE_URL:}
+      # Bearer Token（生产环境建议通过环境变量注入）
+      token: ${FLOW_HTTP_TOKEN:}
+      # 自定义请求头，例如网关鉴权/多租户标识
+      headers: {}
+      # 连接/读取超时（毫秒）
+      timeout-ms: ${FLOW_HTTP_TIMEOUT_MS:5000}
+      # 厂商类型: generic / camunda / flowable-rest / activiti
+      # 决定「默认端点路径 + 分页参数(firstResult/maxResults | start/size | page/size)
+      #      + 响应解包(_embedded/page | data/total | content/totalElements)
+      #      + 部署语义(JSON | multipart) + 挂起语义(POST /suspend | PUT {"suspended"|"action"})
+      #      + 任务动作语义(每动作一端点 | 统一 POST + body.action)」
+      # 未识别的取值会告警并退回 generic（避免"厂商名拼错"被伪装成"引擎不兼容"）。
+      # 注意：各厂商预设只对齐上述结构性差异；查询过滤语义(state/keyword)与字段名
+      #      仍需按实际引擎用 paths.* 与 field-mapping 覆盖。generic 为唯一开箱即用预设。
+      vendor: ${FLOW_HTTP_VENDOR:generic}
+      # 字段映射：本地字段 -> 第三方字段（仅顶层重命名）
+      field-mapping: {}
+      # 能力声明：第三方引擎缺什么必须在这里说清楚，调用方据此降级而不是抛异常。
+      # 三项未配置时取"保守默认"：默认不假设具备 DI 流程图与任意节点驳回
+      #（这两项是 Flowable 的强项，多数第三方引擎没有等价能力）。
+      capability:
+        bpmn-parsing: ${FLOW_CAP_BPMN_PARSING:true}
+        diagram-generation: ${FLOW_CAP_DIAGRAM:false}
+        activity-history: ${FLOW_CAP_ACTIVITY_HISTORY:true}
+        task-comment: ${FLOW_CAP_TASK_COMMENT:true}
+        arbitrary-rollback: ${FLOW_CAP_ARBITRARY_ROLLBACK:false}
+        candidate-group: ${FLOW_CAP_CANDIDATE_GROUP:true}
+        suspend-resume: ${FLOW_CAP_SUSPEND_RESUME:true}
+        variable-query: ${FLOW_CAP_VARIABLE_QUERY:true}
+      # 端点路径「覆盖项」：留空 = 沿用 xbox.flow.http.vendor 的预设。
+      # 重要：不要把全部路径都写满 —— 那会把厂商预设整体覆盖掉，
+      #       vendor 又退化成一个不产生行为差异的配置项。
+      # 只写与预设不同的那几项即可（未写的自动取预设值），例如：
+      #   paths:
+      #     task-todo: /custom/tasks/todo
+      #     task-done: /custom/tasks/done
+      paths: {}
+
+  # 主数据适配层：用户/角色/组织/岗位/员工/权限点 的来源可插拔（本地库 或 第三方系统）
+  # 设计要点：按域混用（如组织与员工来自HR，角色与权限点仍由本平台维护）；
+  #          单一事实源（同一域禁止双写，第三方为权威源时本平台只读）。
+  #
+  # 【重要】"读路径"与"数据落地"是两件事，切数据源时最容易踩坑：
+  #   · provider/domains 只决定**读**走哪里：只有经由 MasterDataFacade/各 Port 的调用才实时查第三方；
+  #     而"组织管理/岗位管理/职工管理"等管理页面读的是**本地投影表**（sys_organization/sys_position/...）；
+  #   · 第三方数据进入本地表只有两条路：① 同步（拉：/api/master-data/sync/*；推：/api/master-data/webhook）；
+  #     ② 登录时的 JIT 即时开户（仅用户域）。
+  #   因此"配置指向了第三方但页面里一条数据都没有"通常不是配置错误，而是**还没同步**。
+  #   默认已开启启动自动同步（见下方 sync-on-startup），也可随时手工触发全量同步：
+  #     POST /api/master-data/sync/full?tenantId=default
+  #   运维前台页面：系统管理 → 主数据同步（按域路由 / 手工全量或增量 / 暂停自动调度 / 收件箱 / 权限诊断）
+  #     GET  /api/master-data/sync/state                          查看自动调度与同步状态
+  #     POST /api/master-data/sync/pause?reason=...               暂停自动调度（定时 + 启动同步）
+  #     POST /api/master-data/sync/resume                         恢复自动调度
+  master-data:
+    # 默认提供者: local(本地库，默认) / http(通用REST目录接口)
+    provider: ${MASTER_DATA_PROVIDER:local}
+    # 按域覆盖提供者，key 取 users/roles/orgs/positions/employees/auths；留空表示全部走默认提供者
+    # 推荐：只把真正由第三方托管的域指向 http（通常 users/orgs/positions/employees），
+    #      而 roles/auths 保持 local —— 菜单与权限点始终由本平台维护，第三方只提供角色编码。
+    #      另外注意 roles 指向 http 时，门面的"有效角色解析"会把本地用户主键传给第三方（对方无法识别），
+    #      属于典型的"配置看着对、结果对不上"陷阱。
+    domains: {}
+      # users: http
+      # orgs: http
+      # positions: http
+      # employees: http
+      # roles: local
+      # auths: local
+    # 写入策略: LOCAL_ONLY / THIRD_PARTY_WINS(默认，第三方为权威源、本平台只读) / REQUEST_APPROVAL
+    write-mode: ${MASTER_DATA_WRITE_MODE:THIRD_PARTY_WINS}
+    # 门面读缓存 TTL（秒），0 表示不缓存
+    cache-ttl-seconds: ${MASTER_DATA_CACHE_TTL:300}
+    # ---- 身份源切换后的"可管理性"保障（避免管理员被锁在门外 / 第三方用户菜单全空）----
+    # 本地应急登录账号（break-glass）白名单：身份源切到第三方后，这些账号仍可先用本地口令登录。
+    # 为什么需要：users 域切到第三方后凭证校验整体走第三方，若第三方里没有该账号、口令不同或服务不可用，
+    #           管理员就会失联 —— 也就没人能登录平台为第三方用户分配菜单权限。
+    # 安全边界：仅对显式列出的账号生效，其余账号一律只走第三方，不会退化成任意账号本地登录的绕过通道。
+    local-accounts:
+      - ${MASTER_DATA_LOCAL_ACCOUNT:admin}
+    # 是否把"本地超管账号(source=LOCAL 且 userType=SUPER_ADMIN)"自动视为应急账号（默认开启）
+    local-super-admin-break-glass: ${MASTER_DATA_LOCAL_SUPER_ADMIN_BREAK_GLASS:true}
+    # JIT 开户/同步后，第三方用户若在本平台一个角色都没有，自动授予的默认角色编码（留空=不授予）。
+    # 更推荐的路径：第三方角色会在本地自动建档为"角色壳"，在「角色管理-分配权限」中一次性配置菜单。
+    default-role-codes: []
+    # 同步第三方角色时是否覆盖本地已分配角色：false(默认)=合并，保留平台内手工授权；true=以第三方为准
+    role-replace-on-sync: ${MASTER_DATA_ROLE_REPLACE_ON_SYNC:false}
+    # 推送（Webhook/SCIM）接入令牌：为空表示关闭推送入口（默认）
+    # 开启后第三方需携带 X-MasterData-Token 头或 token 查询参数调用 /api/master-data/webhook
+    webhook-token: ${MASTER_DATA_WEBHOOK_TOKEN:}
+    sync:
+      # 是否启用定时同步（默认关闭）
+      enabled: ${MASTER_DATA_SYNC_ENABLED:false}
+      # 启动时自动执行一次全量同步（默认开启，异步执行、不阻塞启动，失败只告警）
+      # 作用：保证"切到第三方后，组织/岗位/职工等管理页面能直接看到数据"，无需人工记得点一次同步
+      sync-on-startup: ${MASTER_DATA_SYNC_ON_STARTUP:true}
+      cron: "${MASTER_DATA_SYNC_CRON:0 0 2 * * ?}"
+      # 每批拉取条数
+      page-size: ${MASTER_DATA_SYNC_PAGE_SIZE:500}
+      # 冲突策略: THIRD_PARTY_WINS(默认) / LOCAL_WINS / MANUAL
+      conflict: ${MASTER_DATA_SYNC_CONFLICT:THIRD_PARTY_WINS}
+      # 待同步租户，留空时仅同步 default
+      tenants: []
+      # 第三方已消失的记录是否在本地软删除（enabled=false，绝不物理删除）
+      deactivate-missing: ${MASTER_DATA_SYNC_DEACTIVATE_MISSING:false}
+      # 演练模式：只统计不落库
+      dry-run: ${MASTER_DATA_SYNC_DRY_RUN:false}
+      # 推送收件箱兜底消费定时表达式（处理受理后进程重启/失败重试的残留事件）
+      inbox-cron: "${MASTER_DATA_SYNC_INBOX_CRON:0 */5 * * * ?}"
+      # ---- 推模式（Webhook / SCIM 回调）收件箱 ----
+      # 收件接口共享令牌（请求头 X-Master-Data-Token）；为空表示该入口关闭（返回403）
+      inbox-token: ${MASTER_DATA_INBOX_TOKEN:}
+      # 收件箱轮询间隔（毫秒）
+      inbox-poll-ms: ${MASTER_DATA_INBOX_POLL_MS:30000}
+      # 单轮消费条数上限
+      inbox-batch-size: ${MASTER_DATA_INBOX_BATCH_SIZE:200}
+      # 已处理事件保留天数（<=0 表示不清理）
+      # 收件箱只增不减（幂等去重 + 可重放），必须按留存策略裁剪，否则几个月就会到百万级。
+      # 只清理 PROCESSED；PENDING 待重试、FAILED 待人工重放，都不会被删。
+      inbox-retention-days: ${MASTER_DATA_INBOX_RETENTION_DAYS:30}
+      # 收件箱清理任务定时表达式（默认每日 03:30）
+      inbox-cleanup-cron: "${MASTER_DATA_INBOX_CLEANUP_CRON:0 30 3 * * ?}"
+    providers:
+      http:
+        # 第三方基础地址；为空表示该提供者未启用（不影响启动，调用时才报错）
+        base-url: ${MASTER_DATA_HTTP_BASE_URL:}
+        # Bearer Token（生产环境建议通过环境变量注入）
+        token: ${MASTER_DATA_HTTP_TOKEN:}
+        # 自定义请求头，例如 X-Tenant-Id
+        headers: {}
+        # 字段映射：本地DTO字段 -> 第三方JSON字段（仅顶层重命名）
+        field-mapping: {}
+        # 连接/读取超时（毫秒）
+        timeout-ms: ${MASTER_DATA_HTTP_TIMEOUT_MS:5000}
+        # 各端点相对路径，{id} 等为占位符
+        paths:
+          users: /users
+          user-by-username: /users/by-username
+          user-by-id: /users/{id}
+          user-by-external-id: /users/by-external-id
+          roles: /roles
+          role-by-id: /roles/{id}
+          role-by-code: /roles/by-code
+          orgs: /orgs
+          org-by-id: /orgs/{id}
+          org-tree: /orgs/tree
+          org-children: /orgs/children
+          org-by-code: /orgs/by-code
+          org-by-external-id: /orgs/by-external-id
+          positions: /positions
+          position-by-id: /positions/{id}
+          position-by-code: /positions/by-code
+          position-assign: /employees/{id}/positions
+          employees: /employees
+          employee-by-id: /employees/{id}
+          employee-by-external-id: /employees/by-external-id
+          employees-by-org: /employees/by-org
+          effective-roles: /users/effective-roles
+          authenticate: /auth/verify
+          sync-pull: /sync/changes
 
 logging:
   level:
