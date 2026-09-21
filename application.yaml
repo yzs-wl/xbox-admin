@@ -1,9 +1,20 @@
 server:
-  port: 8080
+  port: 8888
+  tomcat:
+    # 暴露 Tomcat MBean Registry（默认关闭）。运维监控页「连接池」标签的
+    # 「Tomcat 工作线程池」指标依赖 Tomcat:type=Executor MBean，开启后可见
+    mbeanregistry:
+      enabled: true
 
 spring:
   application:
     name: xbox-admin
+  mvc:
+    async:
+      # SSE 长任务（如 /api/chat/stream）异步请求超时：默认容器值对多轮工具调用的大任务太短，
+      # 超时后前端 SSE 断开（后台执行体继续运行、可经进度轮询恢复），但会出现断连提示。
+      # 显式放宽到 30 分钟；超过 30 分钟的超长任务仍走「断连恢复 + 继续」机制。
+      request-timeout: 1800000
   # ==================== 服务注册中心（Nacos / CSE / Consul，全部默认关闭，独立运行不受影响） ====================
   # 统一实现：config/registry 包下三个客户端均使用 HTTP Open API 注册（JDK HttpClient），
   # 不引入任何注册中心 SDK 依赖，兼容 GraalVM Native Image。三者可同时启用（多注册中心并存）。
@@ -140,7 +151,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        # JDBC 批量写入：让同一事务内的多条语句合并发送，减少数据库往返（主数据同步受益）。
+        # JDBC 批量写入：让同一事务内的多条语句合并发送，减少数据库往返（数据同步受益）。
         # order_* 按表分组后再批处理，是批量真正生效的前提。
         # 注意：实体主键用的是 IDENTITY 自增，Hibernate 必须逐行取回生成主键，
         #      因此 INSERT 的批处理收益有限（UPDATE 与多语句事务不受此限制）。
@@ -188,7 +199,7 @@ spring:
           starttls:
             enable: true
   # ==================== 定时任务线程池 ====================
-  # 项目里所有 @Scheduled（主数据同步、推送收件箱消费与清理、审计完整性摘要、备份等）
+  # 项目里所有 @Scheduled（数据同步、推送收件箱消费与清理、审计完整性摘要、备份等）
   # 共用这一个池。Spring Boot 默认 pool.size=1 —— 主数据增量同步（可能几分钟）
   # 会把同一池里的其它定时任务全部堵住，因此这里放宽到 4。
   task:
@@ -295,7 +306,7 @@ xbox:
     # 允许的 Host 头白名单（防 Host 头篡改）
     allowed-hosts: localhost,127.0.0.1
     # CORS 允许的来源域名
-    cors-allowed-origins: http://localhost:3000,http://localhost:8080
+    cors-allowed-origins: http://localhost:3000,http://localhost:8888
     # 登录安全策略
     login-policy:
       # 是否启用登录失败锁定
@@ -356,6 +367,15 @@ xbox:
     notify-email: ${BACKUP_NOTIFY_EMAIL:}
     # 定时备份时间（默认每日 03:30）
     cron: ${BACKUP_CRON:0 30 3 * * ?}
+
+  # ==================== 运维监控（零依赖，纯JDK/JMX/Hikari MXBean实现） ====================
+  ops:
+    # 系统指标采样间隔（秒），采样写入内存环形缓冲
+    sample-interval-seconds: ${OPS_SAMPLE_INTERVAL_SECONDS:30}
+    # 指标历史保留时长（分钟），默认1440=24小时
+    history-retention-minutes: ${OPS_HISTORY_RETENTION_MINUTES:1440}
+    # 慢SQL阈值（毫秒），低代码动态数据源SQL超过该值记入慢SQL明细
+    slow-sql-threshold-ms: ${OPS_SLOW_SQL_THRESHOLD_MS:1000}
 
   # 幂等性防重复提交配置
   idempotent:
@@ -580,7 +600,7 @@ xbox:
         # 执行器IP（为空则自动获取）
         ip: ${XXL_JOB_EXECUTOR_IP:}
         # 执行器端口
-        port: ${XXL_JOB_EXECUTOR_PORT:8080}
+        port: ${XXL_JOB_EXECUTOR_PORT:8888}
         # 执行器日志文件路径
         log-path: ${XXL_JOB_EXECUTOR_LOGPATH:/data/applogs/xxl-job/jobhandler}
         # 执行器日志保留天数
@@ -626,6 +646,17 @@ xbox:
       api-key: ${EMBEDDING_API_KEY:}
       # 嵌入模型名称
       model: ${EMBEDDING_MODEL:text-embedding-3-small}
+    # 知识库精准命中直答（快速通道）：top1 相似度达标且显著领先时直接返回知识库原文，
+    # 跳过大模型推理（毫秒级、零 Token 成本、断网可用）。未命中自动回退大模型链路。
+    direct-answer:
+      # 是否启用直答快速通道（需 rag.enabled 同时为 true）
+      enabled: ${RAG_DIRECT_ANSWER_ENABLED:true}
+      # top1 相似度阈值（0~1）。simple 哈希嵌入语义能力有限建议 0.7~0.85；openai 嵌入可取 0.85+
+      score-threshold: ${RAG_DIRECT_ANSWER_SCORE_THRESHOLD:0.85}
+      # top1 与 top2 的最小分差（0~1），低于该值视为歧义命中，回退大模型整理
+      margin: ${RAG_DIRECT_ANSWER_MARGIN:0.1}
+      # 直答返回的最大字符数（超长截断）
+      max-content-chars: ${RAG_DIRECT_ANSWER_MAX_CHARS:2000}
 
   # MCP Server 配置（对外提供MCP协议服务）
   mcp:
@@ -703,7 +734,7 @@ xbox:
   #   因此"配置指向了第三方但页面里一条数据都没有"通常不是配置错误，而是**还没同步**。
   #   默认已开启启动自动同步（见下方 sync-on-startup），也可随时手工触发全量同步：
   #     POST /api/master-data/sync/full?tenantId=default
-  #   运维前台页面：系统管理 → 主数据同步（按域路由 / 手工全量或增量 / 暂停自动调度 / 收件箱 / 权限诊断）
+  #   运维前台页面：系统管理 → 数据同步（按域路由 / 手工全量或增量 / 暂停自动调度 / 收件箱 / 权限诊断）
   #     GET  /api/master-data/sync/state                          查看自动调度与同步状态
   #     POST /api/master-data/sync/pause?reason=...               暂停自动调度（定时 + 启动同步）
   #     POST /api/master-data/sync/resume                         恢复自动调度
