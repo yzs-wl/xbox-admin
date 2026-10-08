@@ -1,5 +1,5 @@
 server:
-  port: 8888
+  port: 8080
   tomcat:
     # 暴露 Tomcat MBean Registry（默认关闭）。运维监控页「连接池」标签的
     # 「Tomcat 工作线程池」指标依赖 Tomcat:type=Executor MBean，开启后可见
@@ -22,6 +22,7 @@ spring:
     # ---------------- Nacos（HTTP Open API） ----------------
     nacos:
       username: ${NACOS_USERNAME:nacos}
+      # 支持密文：password: ENC(<密文>)（生成方式见 xbox.config.crypto）
       password: ${NACOS_PASSWORD:nacos}
       discovery:
         server-addr: ${NACOS_ADDR:127.0.0.1:8848}
@@ -111,6 +112,7 @@ spring:
     url: ${DB_URL:jdbc:h2:file:./data/xbox-admin}
     driver-class-name: ${DB_DRIVER:org.h2.Driver}
     username: ${DB_USERNAME:sa}
+    # 支持密文：写成 password: ENC(<密文>)，或令环境变量 DB_PASSWORD=ENC(<密文>)（见 xbox.config.crypto）
     password: ${DB_PASSWORD:}
     #
     # --- MySQL 8 示例 ---
@@ -172,6 +174,7 @@ spring:
       mode: never
   ai:
     openai:
+      # 支持密文：api-key: ENC(<密文>)（见 xbox.config.crypto）
       api-key: ${OPENAI_API_KEY:sk-placeholder}
       base-url: ${OPENAI_BASE_URL:https://api.deepseek.com}
       chat:
@@ -190,6 +193,7 @@ spring:
     host: ${MAIL_HOST:smtp.example.com}
     port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME:}
+    # 支持密文：password: ENC(<密文>)（见 xbox.config.crypto）
     password: ${MAIL_PASSWORD:}
     protocol: smtp
     properties:
@@ -216,6 +220,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      # 支持密文：password: ENC(<密文>)（见 xbox.config.crypto）
       password: ${REDIS_PASSWORD:}
       database: ${REDIS_DATABASE:0}
       timeout: ${REDIS_TIMEOUT:3000ms}
@@ -238,6 +243,7 @@ jwt:
   # 【安全警告】JWT密钥必须通过环境变量JWT_SECRET设置！
   # 系统启动时会校验密钥强度，弱密钥/默认密钥将导致启动警告。
   # 绝不应在生产环境使用默认值，攻击者可用此密钥伪造任意JWT Token。
+  # 支持密文：secret: ENC(<密文>)（见 xbox.config.crypto）
   secret: ${JWT_SECRET:XboxAdminSecretKeyForJwtTokenGeneration2024VeryLongSecretKey}
   expiration: ${JWT_EXPIRATION:86400000}
   # JWT时钟偏移容忍秒数，防止客户端/服务器时间差导致误判过期
@@ -245,6 +251,16 @@ jwt:
 
 # 安全配置
 xbox:
+  # ==================== 租户策略（与服务器硬件容量相关） ====================
+  tenant:
+    # 系统允许的最大租户数量（管理员建租户 + 自助注册共用上限）。
+    # 0 表示不限制（默认）；设为 N>0 时，租户总数达到 N 后建租户/注册都会被拒绝。
+    # 建议依据 CPU/内存/磁盘/数据库连接数评估，例如：XBOX_TENANT_MAX_COUNT=100
+    max-count: ${XBOX_TENANT_MAX_COUNT:0}
+    # 每个租户允许的最大用户数量（管理员建用户 + 自助注册建用户共用上限）。
+    # 0 表示不限制（默认）；设为 N>0 时，租户用户数达到 N 后建用户会被拒绝。
+    # 建议依据单租户数据量/索引/查询性能评估，例如：XBOX_TENANT_MAX_USERS=1000
+    max-users-per-tenant: ${XBOX_TENANT_MAX_USERS:0}
   # ==================== 存储层配置（行存 + 列存） ====================
   storage:
     # 是否启用存储路由；false 时一律走行存（列存接入后可一键关闭，回到纯行存行为）
@@ -273,6 +289,50 @@ xbox:
     cluster-notify: ${XBOX_CACHE_CLUSTER_NOTIFY:false}
     # 广播频道名
     cluster-channel: ${XBOX_CACHE_CLUSTER_CHANNEL:xbox:cache:evict}
+  # ==================== 配置项加密（ENC(...) 密文模式） ====================
+  # 作用：application.yaml / 环境变量 / 启动参数里的敏感值（数据库、Redis、邮件、JWT、
+  #      Nacos、AI Key 等）都可写成 ENC(<密文>)，启动期由 EncryptedPropertyEnvironmentPostProcessor
+  #      自动解密，DataSource/Redis/JWT 等自动装配零感知；不写 ENC() 就是明文，完全向后兼容。
+  #
+  # 生成密文（无需新增依赖，纯 JDK）：
+  #   java -cp admin/target/classes org.xbox.admin.config.crypto.ConfigCryptoTool genkey
+  #   java -cp admin/target/classes org.xbox.admin.config.crypto.ConfigCryptoTool encrypt -k <主密钥> <明文>
+  # 校验密文与主密钥是否匹配：
+  #   java -cp admin/target/classes org.xbox.admin.config.crypto.ConfigCryptoTool decrypt -k <主密钥> 'ENC(...)'
+  #
+  # 一次性迁移（不想手工加密时）：临时开启 print-cipher-for-plain-text=true 启动一次，
+  # 日志会给出所有明文口令对应的 ENC(...)，DBA 复制替换后再改回 false 重启即可。
+  #
+  # ⚠️ 主密钥绝不能写在本文件里（否则密文形同虚设），必须外部注入，优先级：
+  #   1) -Dxbox.config.crypto.key=<主密钥>
+  #   2) 环境变量 XBOX_CONFIG_CRYPTO_KEY（或 XBOX_CONFIG_KEY）
+  #   3) 环境变量 XBOX_CONFIG_CRYPTO_KEY_FILE=/run/secrets/xxx（K8s Secret 挂载，取文件首行）
+  #   4) 下面的 xbox.config.crypto.key（仅"防肩窥"级别，不具备真正安全性）
+  config:
+    crypto:
+      # 总开关：false 时所有 ENC(...) 不再解密（排障用）
+      enabled: ${XBOX_CONFIG_CRYPTO_ENABLED:true}
+      # 主密钥：留空 = 从上述外部渠道获取（推荐）
+      key: ${XBOX_CONFIG_CRYPTO_KEY:}
+      # 密钥文件路径：留空 = 不使用文件方式
+      key-file: ${XBOX_CONFIG_CRYPTO_KEY_FILE:}
+      # 盐值：参与密钥派生，必须与生成密文时一致（默认 xbox-config-v1，一般无需修改）
+      salt: ${XBOX_CONFIG_CRYPTO_SALT:xbox-config-v1}
+      # 密文包裹符
+      prefix: ENC(
+      suffix: )
+      # 存在 ENC(...) 却拿不到主密钥时是否阻断启动（避免密文被当口令直连数据库，报晦涩的连接错误）
+      fail-on-missing-key: ${XBOX_CONFIG_CRYPTO_FAIL_ON_MISSING_KEY:true}
+      # 强制密文模式：受保护配置项在配置文件中仍是明文时阻断启动（默认关闭；
+      # 若口令由环境变量/K8s Secret 注入属正常场景，不要开启）
+      fail-on-plain-text: ${XBOX_CONFIG_CRYPTO_FAIL_ON_PLAIN_TEXT:false}
+      # 检测到明文时，在启动日志中直接打印该明文对应的 ENC(...)（便于 DBA 取走替换后按密文模式重启）
+      #   true  = 打印形如「spring.datasource.password: ENC(...)」的可粘贴片段
+      #   false = 只提示配置项名称
+      # ⚠️ 该日志等价于明文：替换完成并重启成功后，请立即改回 false 并清理本条日志
+      print-cipher-for-plain-text: ${XBOX_CONFIG_CRYPTO_PRINT_CIPHER:false}
+      # 受保护配置项清单（逗号分隔）
+      protected-properties: ${XBOX_CONFIG_CRYPTO_PROTECTED:spring.datasource.password,spring.data.redis.password,spring.mail.password,spring.cloud.nacos.password,spring.cloud.cse.token,spring.cloud.consul.token,spring.ai.openai.api-key,jwt.secret,xbox.security.sign-key,xbox.security.aes-key,xbox.crypto.aes-key,xbox.crypto.hash-salt,xbox.scheduler.xxl-job.admin-password}
   security:
     # === 总开关：设为 false 关闭全部安全功能（方便性能测试） ===
     enabled: true
@@ -305,8 +365,10 @@ xbox:
     aes-key: ${AES_KEY:XboxAesKey2024SecretForData}
     # 允许的 Host 头白名单（防 Host 头篡改）
     allowed-hosts: localhost,127.0.0.1
-    # CORS 允许的来源域名
-    cors-allowed-origins: http://localhost:3000,http://localhost:8888
+    # CORS 允许的来源域名（5173=移动端 H5 vite dev；3000=nginx 部署的 H5）
+    # 注意：浏览器对同源 POST 也会带 Origin 头，用 IP 访问时必须把 127.0.0.1 形式一并列入，
+    # 否则会被 CorsFilter 判为非法跨域返回 403 Invalid CORS request。
+    cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:8080,http://127.0.0.1:5173,http://127.0.0.1:3000,http://127.0.0.1:8080}
     # 登录安全策略
     login-policy:
       # 是否启用登录失败锁定
@@ -339,6 +401,28 @@ xbox:
       login-rate-limit-max-attempts: ${LOGIN_RATE_LIMIT_MAX_ATTEMPTS:20}
       # 限流窗口时长（分钟）
       login-rate-limit-window-minutes: ${LOGIN_RATE_LIMIT_WINDOW_MINUTES:5}
+    # ==================== 自助注册（开放互联网应用） ====================
+    # 注册即开租户：注册者自动创建自己的租户（数据租户隔离），成为该租户管理员。
+    # 默认关闭，开放注册请设置 REGISTER_ENABLED=true。
+    register:
+      # 是否开放自助注册
+      enabled: ${REGISTER_ENABLED:true}
+      # 是否强制邮箱验证码校验（true 时注册必须先调用 /api/auth/register/send-code）
+      require-email-verify: ${REGISTER_REQUIRE_EMAIL_VERIFY:false}
+      # 是否强制手机验证码校验（预留，未接短信网关）
+      require-phone-verify: ${REGISTER_REQUIRE_PHONE_VERIFY:false}
+      # 注册接口 IP 维度限流（防批量刷租户）
+      rate-limit-enabled: ${REGISTER_RATE_LIMIT_ENABLED:true}
+      # 限流窗口内最大注册尝试次数
+      rate-limit-max-attempts: ${REGISTER_RATE_LIMIT_MAX_ATTEMPTS:10}
+      # 限流窗口时长（分钟）
+      rate-limit-window-minutes: ${REGISTER_RATE_LIMIT_WINDOW_MINUTES:60}
+      # 自助注册生成的租户编码前缀
+      tenant-prefix: ${REGISTER_TENANT_PREFIX:t_}
+      # 注册成功后绑定给注册用户（租户管理员）的角色编码，逗号分隔。
+      # 默认 super_admin（租户级超管，拥有全部菜单可见性，注册者登录即可自管理本租户）。
+      # 业务数据仍由 tenant_id 过滤器隔离在本租户内，不存在跨租户越权。
+      default-role-codes: ${REGISTER_DEFAULT_ROLE_CODES:super_admin}
     # 通用 API 限流配置
     rate-limit:
       enabled: ${API_RATE_LIMIT_ENABLED:true}
@@ -385,6 +469,45 @@ xbox:
     expire-seconds: ${IDEMPOTENT_EXPIRE_SECONDS:300}
     # 需要幂等校验的路径模式（逗号分隔）
     include-patterns: ${IDEMPOTENT_INCLUDE_PATTERNS:POST:/api/users,POST:/api/roles,POST:/api/organizations,POST:/api/employees,POST:/api/groups,POST:/api/auths,POST:/api/tenants}
+
+  # ==================== 移动端（uni-app 小程序 / H5 / App） ====================
+  mobile:
+    # refreshToken 有效期（天）：移动端长会话载体，accessToken 沿用 jwt.expiration
+    refresh-token-ttl-days: ${MOBILE_REFRESH_TOKEN_TTL_DAYS:30}
+    wx:
+      miniapp:
+        # 微信小程序 AppID/Secret（留空表示未启用小程序登录）
+        app-id: ${WX_MINIAPP_APP_ID:}
+        secret: ${WX_MINIAPP_SECRET:}
+    # ==================== 语音识别（浏览器录音 → 云端一句话识别） ====================
+    # H5 在微信内打开时用原生 getUserMedia/MediaRecorder 录音，
+    # 录音后转发腾讯云「一句话识别」转文字。只需腾讯云实名认证 + 开通语音识别，无需备案。
+    voice:
+      asr:
+        # 识别提供商（当前仅 tencent）
+        provider: ${VOICE_ASR_PROVIDER:tencent}
+        tencent:
+          # 腾讯云 API 密钥（访问管理 CAM 里创建；留空表示未启用语音识别）
+          secret-id: ${TENCENT_ASR_SECRET_ID:}
+          secret-key: ${TENCENT_ASR_SECRET_KEY:}
+          # 地域
+          region: ${TENCENT_ASR_REGION:ap-guangzhou}
+          # 识别引擎/语种：16k_zh（16k 普通话）、8k_zh、16k_en 等
+          eng-service-type: ${TENCENT_ASR_ENG_SERVICE_TYPE:16k_zh}
+    # ==================== 消息推送（待办到达等，多渠道扇出） ====================
+    push:
+      # 总开关：false 时所有渠道停用
+      enabled: ${MOBILE_PUSH_ENABLED:true}
+      wecom:
+        # 企业微信应用消息（三项均非空才启用；约定 xbox 用户名 = 企微 userid）
+        corp-id: ${WECOM_CORP_ID:}
+        agent-id: ${WECOM_AGENT_ID:}
+        secret: ${WECOM_AGENT_SECRET:}
+      wx-miniapp:
+        # 小程序订阅消息模板 ID（非空才启用；用户需在小程序内订阅过）
+        template-id: ${WX_MINIAPP_SUBSCRIBE_TEMPLATE:}
+        # 模板字段映射：模板字段:取值源（title/content/page/now 或常量）
+        data-mapping: ${WX_MINIAPP_SUBSCRIBE_DATA:thing1:title,thing2:content}
 
   # SSO 单点登录配置
   sso:
@@ -508,6 +631,7 @@ xbox:
 
   crypto:
     # 【安全警告】以下密钥必须通过环境变量设置！
+    # 以上两项均支持密文：ENC(<密文>)（见 xbox.config.crypto）
     aes-key: ${CRYPTO_AES_KEY:default-aes-key-please-change-in-production}
     hash-salt: ${CRYPTO_HASH_SALT:default-hash-salt-please-change}
 
@@ -600,7 +724,7 @@ xbox:
         # 执行器IP（为空则自动获取）
         ip: ${XXL_JOB_EXECUTOR_IP:}
         # 执行器端口
-        port: ${XXL_JOB_EXECUTOR_PORT:8888}
+        port: ${XXL_JOB_EXECUTOR_PORT:8080}
         # 执行器日志文件路径
         log-path: ${XXL_JOB_EXECUTOR_LOGPATH:/data/applogs/xxl-job/jobhandler}
         # 执行器日志保留天数
