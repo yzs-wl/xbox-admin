@@ -1,10 +1,28 @@
 server:
-  address: 127.0.0.1
   port: 8888
 spring:
   application:
     name: xbox-admin
+  mail:
+    host: ${MAIL_HOST:smtp.163.com}
+    port: ${MAIL_PORT:465}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    protocol: smtp
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+            socketFactory:
+              port: 465
+              class: javax.net.ssl.SSLSocketFactory
 xbox:
+  config:
+    crypto:
+      enabled: ${XBOX_CONFIG_CRYPTO_ENABLED:true}
+      key: ${XBOX_CONFIG_CRYPTO_KEY:}
   session:
     # 存储类型: memory(默认，内存存储，单机模式) / redis(Redis存储，集群模式)
     store-type: ${SESSION_STORE_TYPE:memory}
@@ -12,16 +30,11 @@ xbox:
     # 缓存后端: caffeine(默认，单机内存) / redis(集群共享)
     store-type: ${XBOX_CACHE_STORE_TYPE:caffeine}
   tenant:
-    max-count: ${XBOX_TENANT_MAX_COUNT:100}
-    max-users-per-tenant: ${XBOX_TENANT_MAX_USERS:100}
+    max-count: ${XBOX_TENANT_MAX_COUNT:0}
+    max-users-per-tenant: ${XBOX_TENANT_MAX_USERS:0}
   security:
-    security-headers-enabled: false
-    allowed-hosts: localhost,127.0.0.1
-    cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080}
-rag:
-    enabled: ${RAG_ENABLED:true}
-    # 向量存储类型: memory(默认，内存存储，单机模式) / redis(Redis存储，集群模式)
-    store-type: ${RAG_STORE_TYPE:memory}
+    allowed-hosts: localhost,127.0.0.1,xbox-admin.icu,www.xbox-admin.icu
+    cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:https://xbox-admin.icu,https://www.xbox-admin.icu,http://xbox-admin.icu,http://www.xbox-admin.icu,https://localhost:80,https://localhost:8888,http://127.0.0.1:80,http://127.0.0.1:8888}
 logging:
   level:
     org.xbox: INFO
