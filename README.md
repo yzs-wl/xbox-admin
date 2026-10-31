@@ -6,9 +6,9 @@
 
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Vue.js](https://img.shields.io/badge/Vue.js-4FC08D?style=flat-square&logo=vuedotjs&logoColor=white)](https://vuejs.org/)
+[![Spring AI](https://img.shields.io/badge/Spring%20AI-1.1-6DB33F?style=flat-square&logo=spring&logoColor=white)](https://spring.io/projects/spring-ai)
 [![Flowable](https://img.shields.io/badge/Flowable-7.1-1B8FE0?style=flat-square&logo=flowable&logoColor=white)](https://www.flowable.com/)
-[![MyBatis-Plus](https://img.shields.io/badge/MyBatis--Plus-3.5-red?style=flat-square)](https://baomidou.com/)
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=flat-square)](LICENSE)
 
 [English](./README_EN.md) | 简体中文
 
@@ -29,10 +29,12 @@
 
 | 特性 | 说明 |
 |------|------|
-| **AI 原生架构** | 所有后端能力通过 MCP 工具暴露给 LLM，六 Agent（Admin / Flow / Model / Office / Schedule / Reverse）智能协作 |
+| **AI 原生架构** | 所有后端能力通过 MCP 工具暴露给 LLM，七 Agent（Admin / Flow / Model / Reverse / Office / Schedule / Skill）智能协作 |
 | **多模态 AI 对话** | 图片理解 + 文件解析 + 工具调用 + 流式打字机效果，兼容任意 OpenAI API |
-| **专家模式聊天室** | 多 Agent 顺序协作讨论，自动生成总结 |
+| **专家模式聊天室** | 多 Agent 多轮顺序协作讨论，自动生成总结 |
 | **RAG 知识库** | 文档摄入、自动分块、向量检索增强生成，支持 Simple / OpenAI Embedding |
+| **AI 技能系统** | 服务 / 模型 / 流程统一抽象为可发现、可调用的技能，支持 Markdown 描述与反向生成 |
+| **Playbook 经验固化** | 成功调用套路语义化保存到向量知识库，下次自动检索复用 |
 
 </details>
 
@@ -43,7 +45,10 @@
 |------|------|
 | **完整 RBAC 权限** | 用户 / 角色 / 部门 / 员工 / 分组 / 菜单 / 按钮 / 数据级权限，声明式注解校验 |
 | **多租户隔离** | 完整的租户数据隔离，租户上下文自动传播 |
-| **前后端加密** | HMAC 签名 + AES 加密 + 防重放 + 防篡改 + XSS / SQL 注入检测 |
+| **SSO 单点登录** | 支持 Keycloak / GitHub / WeChat / 企业微信 / Azure AD / Okta / Google / 钉钉 / 飞书 九大 Provider |
+| **前后端加密** | HMAC 签名 + AES 加密 + 防重放 + 防篡改 + XSS / SQL 注入检测，7 层可配置开关 |
+| **登录安全** | 失败锁定 + 验证码 + 密码复杂度 / 历史 / 过期策略 |
+| **企业级能力** | 幂等性防重、通知中心（站内 / 邮件 / Webhook）、多时区、AI 成本管控与配额 |
 | **国际化** | 完整的中文 / 英文双语支持 |
 
 </details>
@@ -53,7 +58,7 @@
 
 | 特性 | 说明 |
 |------|------|
-| **低代码引擎** | 动态建表、动态 CRUD、主子关系、版本管理、数据库逆向、业务字典、字段级密级加密 |
+| **低代码引擎** | 动态建表、动态 CRUD、主子关系、版本管理、数据库逆向、业务字典、字段级密级加密、视图设计器、服务设计、业务规则 |
 | **业务字典治理** | 业务分类 / 业务目录 / 业务模型 / 业务元素 / 数据元素五级体系，业务-数据双轨溯源 |
 | **本体血缘** | 从业务概念到物理实现的完整血缘图谱，6 种节点 + 5 种关系边 |
 | **业务探索** | 图谱可视化 + 查询方案（自动构建多表 JOIN SQL） |
@@ -67,8 +72,8 @@
 | 特性 | 说明 |
 |------|------|
 | **BPMN 流程设计** | 基于 Flowable 7.1 + bpmn-js 的可视化流程设计，与低代码模型深度集成 |
-| **文档解析** | 支持 txt / md / json / csv 多格式文档解析 |
-| **调度任务** | 支持 Spring Scheduler / XXL-JOB 双框架，cron / fixed_rate / fixed_delay 多调度类型 |
+| **文档解析** | 支持 txt / md / json / csv / docx / xlsx / pptx / pdf / mpp / vsdx 多格式文档解析 |
+| **调度任务** | 支持 Spring Scheduler / XXL-JOB 双框架，cron / fixed_rate / fixed_delay / one_shot 多调度类型 |
 
 </details>
 
@@ -78,7 +83,7 @@
 | 特性 | 说明 |
 |------|------|
 | **快速搭建** | 开箱即用，无需复杂配置即可启动 |
-| **轻量部署** | H2 嵌入式数据库，单 JAR 部署，支持 GraalVM Native Image / MySQL / Redis |
+| **轻量部署** | H2 嵌入式数据库，单 JAR 部署，支持 GraalVM Native Image / MySQL / PostgreSQL / Redis |
 
 </details>
 
@@ -88,12 +93,13 @@
 
 | 层级 | 技术栈 | 说明 |
 |:----:|:------:|------|
-| **后端** | `Spring Boot` | 企业级 Java 应用框架 |
-| **前端** | `Vue.js` | 渐进式 JavaScript 框架 |
+| **后端** | `Spring Boot 3` + `Java 21` | 企业级 Java 应用框架 |
+| **AI** | `Spring AI` + `MCP` | LLM 集成与工具协议 |
+| **前端** | `Vue 3` + `Element Plus` | 渐进式 JavaScript 框架 |
 | **工作流** | `Flowable 7.1` | 业务流程引擎 |
-| **持久层** | `MyBatis-Plus` | MyBatis 增强工具 |
-| **数据库** | `MySQL` / `H2` | 关系型数据库 |
-| **缓存** | `Redis` | 分布式缓存 |
+| **持久层** | `Spring Data JPA` | ORM / 数据访问 |
+| **数据库** | `H2` / `MySQL` / `PostgreSQL` | 关系型数据库 |
+| **缓存** | `Redis`（可选） | 分布式缓存 / 会话存储 |
 
 ---
 
@@ -101,13 +107,12 @@
 
 ```
 xbox-admin/
-├── xbox-admin.zip.*      # 程序文件（分片压缩，共 12 个包）
-├── application.yml      # 配置文件
-├── logback-spring.xml   # 日志配置
-├── chat.md               # 聊天示例
-├── chat.png              # 系统截图
-├── LICENSE               # 开源协议
-└── README.md             # 项目说明
+├── xbox-admin.zip.001~003   # Windows 版程序（分片压缩，共 3 个包）
+├── linux/                   # Linux 版程序（分片压缩 + 配置文件）
+├── application.yaml         # 配置文件
+├── LICENSE                  # 开源协议（Apache 2.0）
+├── README.md                # 项目说明（中文）
+└── README_EN.md             # 项目说明（英文）
 ```
 
 ---
@@ -116,11 +121,12 @@ xbox-admin/
 
 ### 1️⃣ 解压安装包
 
-> 受程序包大小提交限制，已分片压缩为 **12 个 ZIP 包**，需全部下载后解压。
+> 受程序包大小提交限制，已分片压缩为 **3 个 ZIP 包**（`linux/` 目录下为 Linux 版），需全部下载后解压至同一目录。
 
-### 2️⃣ 启动主服务
+### 2️⃣ 启动服务
 
-运行 `xbox-admin.exe` 启动后端服务。
+- **Windows**：运行 `xbox-admin.exe` 启动服务
+- **Linux**：解压 `linux/` 下的分片包，运行 `java -jar xbox-admin.jar`（需 JDK 21+）
 
 ### 3️⃣ 访问系统
 
@@ -154,6 +160,6 @@ xbox-admin/
 
 <div align="center">
 
-<sub>© 2025 Xbox Admin. All rights reserved.</sub>
+<sub>© 2025-2026 Xbox Admin. All rights reserved.</sub>
 
 </div>

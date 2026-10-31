@@ -6,9 +6,9 @@
 
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-6DB33F?style=flat-square&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Vue.js](https://img.shields.io/badge/Vue.js-4FC08D?style=flat-square&logo=vuedotjs&logoColor=white)](https://vuejs.org/)
+[![Spring AI](https://img.shields.io/badge/Spring%20AI-1.1-6DB33F?style=flat-square&logo=spring&logoColor=white)](https://spring.io/projects/spring-ai)
 [![Flowable](https://img.shields.io/badge/Flowable-7.1-1B8FE0?style=flat-square&logo=flowable&logoColor=white)](https://www.flowable.com/)
-[![MyBatis-Plus](https://img.shields.io/badge/MyBatis--Plus-3.5-red?style=flat-square)](https://baomidou.com/)
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=flat-square)](LICENSE)
 
 English | [简体中文](./README.md)
 
@@ -29,10 +29,12 @@ The system also provides **Business Dictionary Governance** (Business Category /
 
 | Feature | Description |
 |---------|-------------|
-| **AI-Native Architecture** | All backend capabilities exposed to LLM via MCP tools; six Agents (Admin / Flow / Model / Office / Schedule / Reverse) collaborate intelligently |
+| **AI-Native Architecture** | All backend capabilities exposed to LLM via MCP tools; seven Agents (Admin / Flow / Model / Reverse / Office / Schedule / Skill) collaborate intelligently |
 | **Multimodal AI Dialogue** | Image understanding + file parsing + tool calling + streaming typewriter effect; compatible with any OpenAI API |
-| **Expert Mode Chat Room** | Multi-agent sequential collaborative discussion with auto-generated summaries |
+| **Expert Mode Chat Room** | Multi-agent multi-round collaborative discussion with auto-generated summaries |
 | **RAG Knowledge Base** | Document ingestion, auto-chunking, vector retrieval-augmented generation; supports Simple / OpenAI Embedding |
+| **AI Skill System** | Services / models / workflows abstracted as discoverable, invocable skills with Markdown descriptions and reverse generation |
+| **Playbook Experience Solidification** | Successful invocation patterns saved semantically to a vector knowledge base for automatic retrieval and reuse |
 
 </details>
 
@@ -43,7 +45,10 @@ The system also provides **Business Dictionary Governance** (Business Category /
 |---------|-------------|
 | **Full RBAC Permissions** | User / Role / Department / Employee / Group / Menu / Button / Data-level permissions with declarative annotation validation |
 | **Multi-Tenant Isolation** | Complete tenant data isolation with automatic tenant context propagation |
-| **Frontend-Backend Encryption** | HMAC signature + AES encryption + anti-replay + anti-tamper + XSS / SQL injection detection |
+| **SSO Single Sign-On** | Supports nine providers: Keycloak / GitHub / WeChat / WeCom / Azure AD / Okta / Google / DingTalk / Feishu |
+| **Frontend-Backend Encryption** | HMAC signature + AES encryption + anti-replay + anti-tamper + XSS / SQL injection detection, with 7 configurable layers |
+| **Login Security** | Failure lockout + captcha + password complexity / history / expiration policies |
+| **Enterprise Capabilities** | Idempotency protection, Notification Center (In-app / Email / Webhook), multi-timezone, AI cost control & quotas |
 | **Internationalization** | Full Chinese / English bilingual support |
 
 </details>
@@ -53,7 +58,7 @@ The system also provides **Business Dictionary Governance** (Business Category /
 
 | Feature | Description |
 |---------|-------------|
-| **Low-Code Engine** | Dynamic table creation, dynamic CRUD, master-child relationships, version management, database reverse engineering, business dictionary, field-level encryption |
+| **Low-Code Engine** | Dynamic table creation, dynamic CRUD, master-child relationships, version management, database reverse engineering, business dictionary, field-level classification encryption, view designer, service designer, business rules |
 | **Business Dictionary Governance** | Five-tier system: Business Category / Business Catalog / Business Model / Business Element / Data Element with business-data dual-track traceability |
 | **Ontology Lineage** | Complete lineage graph from business concept to physical implementation, 6 node types + 5 relationship types |
 | **Business Exploration** | Graph visualization + query schemes (auto-generated multi-table JOIN SQL) |
@@ -67,8 +72,8 @@ The system also provides **Business Dictionary Governance** (Business Category /
 | Feature | Description |
 |---------|-------------|
 | **BPMN Workflow Design** | Visual workflow design based on Flowable 7.1 + bpmn-js, deeply integrated with low-code models |
-| **Document Parsing** | Supports txt / md / json / csv multi-format document parsing |
-| **Scheduled Tasks** | Supports Spring Scheduler / XXL-JOB dual frameworks with cron / fixed_rate / fixed_delay scheduling types |
+| **Document Parsing** | Supports txt / md / json / csv / docx / xlsx / pptx / pdf / mpp / vsdx multi-format document parsing |
+| **Scheduled Tasks** | Supports Spring Scheduler / XXL-JOB dual frameworks with cron / fixed_rate / fixed_delay / one_shot scheduling types |
 
 </details>
 
@@ -78,7 +83,7 @@ The system also provides **Business Dictionary Governance** (Business Category /
 | Feature | Description |
 |---------|-------------|
 | **Quick Setup** | Ready to use out of the box, no complex configuration required |
-| **Lightweight Deployment** | H2 embedded database, single JAR deployment; supports GraalVM Native Image / MySQL / Redis |
+| **Lightweight Deployment** | H2 embedded database, single JAR deployment; supports GraalVM Native Image / MySQL / PostgreSQL / Redis |
 
 </details>
 
@@ -88,12 +93,13 @@ The system also provides **Business Dictionary Governance** (Business Category /
 
 | Layer | Technology | Description |
 |:-----:|:----------:|-------------|
-| **Backend** | `Spring Boot` | Enterprise-grade Java application framework |
-| **Frontend** | `Vue.js` | Progressive JavaScript framework |
+| **Backend** | `Spring Boot 3` + `Java 21` | Enterprise-grade Java application framework |
+| **AI** | `Spring AI` + `MCP` | LLM integration and tool protocol |
+| **Frontend** | `Vue 3` + `Element Plus` | Progressive JavaScript framework |
 | **Workflow** | `Flowable 7.1` | Business process engine |
-| **Persistence** | `MyBatis-Plus` | Enhanced MyBatis toolkit |
-| **Database** | `MySQL` / `H2` | Relational database |
-| **Cache** | `Redis` | Distributed cache |
+| **Persistence** | `Spring Data JPA` | ORM / data access |
+| **Database** | `H2` / `MySQL` / `PostgreSQL` | Relational database |
+| **Cache** | `Redis` (optional) | Distributed cache / session storage |
 
 ---
 
@@ -101,26 +107,26 @@ The system also provides **Business Dictionary Governance** (Business Category /
 
 ```
 xbox-admin/
-├── xbox-admin.zip.*      # Program files (split-compressed, 12 archives)
-├── application.yml      # Configuration file
-├── logback-spring.xml   # Logging configuration
-├── chat.md               # Chat example
-├── chat.png              # System screenshot
-├── LICENSE               # Open source license
-└── README.md             # Project documentation
+├── xbox-admin.zip.001~003   # Windows program (split-compressed, 3 archives)
+├── linux/                   # Linux program (split archives + config file)
+├── application.yaml         # Configuration file
+├── LICENSE                  # Open source license (Apache 2.0)
+├── README.md                # Project documentation (Chinese)
+└── README_EN.md             # Project documentation (English)
 ```
 
 ---
 
 ## 🚀 Quick Start
 
-### 1️⃣ Extract Installation Package
+### 1️⃣ Extract the Installation Package
 
-> Due to package size restrictions, the project has been split-compressed into **12 ZIP archives**. All must be downloaded and extracted.
+> Due to package size restrictions, the program has been split-compressed into **3 ZIP archives** (the `linux/` directory contains the Linux version). Download all archives and extract them into the same directory.
 
 ### 2️⃣ Launch the Service
 
-Run `xbox-admin.exe` to start the backend service.
+- **Windows**: Run `xbox-admin.exe` to start the service
+- **Linux**: Extract the split archives under `linux/`, then run `java -jar xbox-admin.jar` (JDK 21+ required)
 
 ### 3️⃣ Access the System
 
@@ -154,6 +160,6 @@ If you have any questions or suggestions, feel free to contact us:
 
 <div align="center">
 
-<sub>© 2025 Xbox Admin. All rights reserved.</sub>
+<sub>© 2025-2026 Xbox Admin. All rights reserved.</sub>
 
 </div>
