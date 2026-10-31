@@ -18,9 +18,11 @@ English | [简体中文](./README.md)
 
 ## 📖 Introduction
 
-**Xbox Admin** is an enterprise information system intelligent builder based on **Spring Boot + Vue.js**. It adopts a front-end/back-end separation architecture and integrates six core capabilities: **RBAC Permission Management**, **AI Intelligent Dialogue**, **BPM Workflow Engine**, **Low-Code Model**, **Document Parsing**, and **Scheduled Tasks**. All backend management capabilities are exposed to large language models via the MCP tool protocol, allowing users to perform all administrative operations through natural language.
+**Xbox Admin** is an enterprise information system intelligent builder based on **Spring Boot + Vue.js**. It adopts a front-end/back-end separation architecture and integrates seven core capabilities: **RBAC Permission Management**, **AI Intelligent Dialogue**, **Design Center**, **BPM Workflow Engine**, **Low-Code Model**, **Document Parsing**, and **Scheduled Tasks**. All backend management capabilities are exposed to large language models via the MCP tool protocol, allowing users to perform all administrative operations through natural language.
 
 The system also provides **Business Dictionary Governance** (Business Category / Business Catalog / Business Model / Business Element / Data Element + Ontology Lineage + Business Exploration) and **Master-Slave Read/Write Separation** capabilities, supporting enterprise-grade data governance and high-performance data access.
+
+The built-in **Design Center** provides EA five-view modeling, logical data models, detailed design diagrams, and design asset accumulation. Through artifact linking / model conversion / one-click linkage / drift detection / baseline control, it achieves **bidirectional integration between design-time and runtime**, supporting end-to-end traceability from requirements to runtime.
 
 ### ✨ Key Features
 
@@ -63,6 +65,24 @@ The system also provides **Business Dictionary Governance** (Business Category /
 | **Ontology Lineage** | Complete lineage graph from business concept to physical implementation, 6 node types + 5 relationship types |
 | **Business Exploration** | Graph visualization + query schemes (auto-generated multi-table JOIN SQL) |
 | **Master-Slave Read/Write Separation** | Service-layer dynamic routing, round-robin load balancing, dual slave cache modes (Memory / Redis), automatic failover |
+
+</details>
+
+<details open>
+<summary><b>🎨 Design Center</b></summary>
+
+| Feature | Description |
+|---------|-------------|
+| **EA Enterprise Architecture** | Five-view objects (business domain / capability / application / technology / security) with layered management; capability map + architecture alignment check |
+| **Unified Design Objects** | Domain / project tree + unified version management for design objects; 9 relation types (contains / implements / maps / depends, etc.); comments & reviews, requirement traceability, and change impact analysis |
+| **Logical Data Modeling** | Logical models / attributes / ER diagram / field-level lineage (three-way tracing: FK / data element / physical column mapping); one-click DDL export in 8 dialects (MySQL / PostgreSQL / Oracle / DM / KingBase, etc.) |
+| **Design-to-Runtime Integration** | Artifact links between design objects and runtime entities (linked / deployed / drifted); logical ↔ physical model bidirectional conversion; one-click flowchart deployment to Flowable; one-click generation of runtime rules and services from business rule / API refinement designs |
+| **One-Click Linkage & Drift Check** | One-click deployment of five-view designs into deliverables (domains / microservices / logical models / integration definitions); automatic column comparison between physical models and runtime tables, generating incremental ALTER scripts and updating link status |
+| **Baseline & Change Control** | Design baseline snapshots / version drift comparison / baseline restore / object rollback with field-level diffs; change requests wired into Flowable multi-step approval; review approval auto-solidifies baseline |
+| **AI Design** | AI-generated logical models / API definitions (directly saved as design objects); intelligent review of architecture compliance / naming conventions / model consistency |
+| **Detailed Design Diagrams** | 8 diagram types: class / use case / component / deployment / state / activity / sequence / flowchart, with automatic layout |
+| **Governance & Topology** | Data asset map, end-to-end data flow lineage, integration relationship graph, deployment topology, security architecture topology |
+| **Assets & Metrics** | Design asset library for cross-project reuse, design templates / specs, UI themes, tech roadmaps, prompt templates, automated compliance checks, and design metric audits |
 
 </details>
 
@@ -126,8 +146,7 @@ xbox-admin/
 ### 2️⃣ Launch the Service
 
 - **Windows**: Run `xbox-admin.exe` to start the service
-- **Linux**: Extract the split archives under `linux/`, then run `java -jar xbox-admin.jar` (JDK 21+ required)
-
+- **Linux**: Extract the split archives under `linux/`, then run `xbox-admin`
 ### 3️⃣ Access the System
 
 | Item | Description |
