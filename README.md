@@ -9,6 +9,7 @@
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-1.1-6DB33F?style=flat-square&logo=spring&logoColor=white)](https://spring.io/projects/spring-ai)
 [![Flowable](https://img.shields.io/badge/Flowable-7.1-1B8FE0?style=flat-square&logo=flowable&logoColor=white)](https://www.flowable.com/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=flat-square)](LICENSE)
+[![Website](https://img.shields.io/badge/Website-xbox--admin.icu-0969DA?style=flat-square&logo=googlechrome&logoColor=white)](https://xbox-admin.icu)
 
 [English](./README_EN.md) | 简体中文
 
@@ -152,7 +153,8 @@ xbox-admin/
 
 | 项目 | 说明 |
 |------|------|
-| 访问地址 | [http://127.0.0.1:8080](http://127.0.0.1:8080) |
+| 在线体验 | [https://xbox-admin.icu](https://xbox-admin.icu) |
+| 本地访问地址 | [http://127.0.0.1:8080](http://127.0.0.1:8080) |
 | 默认用户名 | `admin` |
 | 默认密码 | `admin123` |
 

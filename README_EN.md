@@ -9,6 +9,7 @@
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-1.1-6DB33F?style=flat-square&logo=spring&logoColor=white)](https://spring.io/projects/spring-ai)
 [![Flowable](https://img.shields.io/badge/Flowable-7.1-1B8FE0?style=flat-square&logo=flowable&logoColor=white)](https://www.flowable.com/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=flat-square)](LICENSE)
+[![Website](https://img.shields.io/badge/Website-xbox--admin.icu-0969DA?style=flat-square&logo=googlechrome&logoColor=white)](https://xbox-admin.icu)
 
 English | [简体中文](./README.md)
 
@@ -151,7 +152,8 @@ xbox-admin/
 
 | Item | Description |
 |------|-------------|
-| URL | [http://127.0.0.1:8080](http://127.0.0.1:8080) |
+| Online Demo | [https://xbox-admin.icu](https://xbox-admin.icu) |
+| Local URL | [http://127.0.0.1:8080](http://127.0.0.1:8080) |
 | Default Username | `admin` |
 | Default Password | `admin123` |
 
